@@ -11,6 +11,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.MediaStore.Images.Media.getContentUri
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,10 +22,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,46 +139,46 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.fillMaxSize()) {
                         val view = LocalView.current
                         var capturingViewBounds by remember { mutableStateOf<Rect?>(null) }
+                        var isRecording by remember { mutableStateOf(false) }
+                        var totalCaptureTime by remember { mutableStateOf(0) }
+                        var previousCaptureTime by remember { mutableStateOf(System.currentTimeMillis()) }
+
+                        val resetRecording: () -> Unit = {
+                            Log.d(TAG, "Total captured bitmaps: ${capturedBitmaps.size}")
+                            capturedBitmaps.forEach { bmp ->
+                                Log.d(TAG, "Captured Bitmap: ${bmp}")
+                            }
+                            totalCaptureTime = 0
+                            capturedBitmaps.clear()
+                        }
                         Button(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp, vertical = 16.dp)
                                 .align(Alignment.End)
                             ,
+                            colors = if (isRecording) {
+                                ButtonDefaults.buttonColors(
+                                    backgroundColor = Color.Red
+                                )
+                            } else {
+                                ButtonDefaults.buttonColors(
+                                    backgroundColor = MaterialTheme.colors.primary
+                                )
+                            },
                             onClick = {
-                                val bounds = capturingViewBounds ?: return@Button
-                                // If API >= 29 we can use scoped storage and don't require permission to save images.
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                    val bmp = Bitmap.createBitmap(
-                                        bounds.width.roundToInt(), bounds.height.roundToInt(),
-                                        Bitmap.Config.ARGB_8888
-                                    ).applyCanvas {
-                                        translate(-bounds.left, -bounds.top)
-                                        view.draw(this)
-                                    }
-                                    saveFileToScopedStorage("screenshot", bmp)
-                                } else {
-                                    // Scoped storage doesn't exist before Android 29 so need to check permissions
-                                    if (checkPermissions()) {
-                                        val bmp = Bitmap.createBitmap(
-                                            bounds.width.roundToInt(), bounds.height.roundToInt(),
-                                            Bitmap.Config.ARGB_8888
-                                        ).applyCanvas {
-                                            translate(-bounds.left, -bounds.top)
-                                            view.draw(this)
-                                        }
-                                        saveFileToStorage("screenshot", bmp)
-                                    } else {
-                                        externalStoragePermissionRequest.launch(
-                                            arrayOf(
-                                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                                Manifest.permission.READ_EXTERNAL_STORAGE,
-                                            )
-                                        )
-                                    }
+                                isRecording = !isRecording
+                                if (isRecording) { // Start recording
+                                    previousCaptureTime = System.currentTimeMillis()
+                                } else { // End recording
+                                    resetRecording()
                                 }
                             }
                         ) {
-                            Text("Save")
+                            if (isRecording) {
+                                Text("End")
+                            } else {
+                                Text("Start")
+                            }
                         }
                         var activeShapeId by remember { mutableStateOf(-1) }
                         var isActiveShapeInMotion by remember { mutableStateOf(false) }
@@ -193,8 +191,6 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .onGloballyPositioned {
-                                        Log.d(TAG, "topLeft: ${it.boundsInRoot().topLeft}")
-                                        Log.d(TAG, "bottomRight: ${it.boundsInRoot().bottomRight}")
                                         capturingViewBounds = it.boundsInRoot()
                                     }
                                 ,
@@ -214,6 +210,29 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onGestureFinished = {
                                         isActiveShapeInMotion = false
+                                    },
+                                    onGesture = {
+                                        // TODO("CONTINUE HERE")
+                                        /**
+                                         * This doesn't work b/c if the object doesn't move we don't capture any bitmap.
+                                         * So need to create some kind of a runnable job that starts when the recording starts
+                                         * and capture a bitmap every timeInterval.
+                                         */
+                                        if (isRecording) {
+                                            val delta = System.currentTimeMillis() - previousCaptureTime
+                                            if (totalCaptureTime > 5000) {
+                                                isRecording = false // force stop
+                                                resetRecording()
+                                            }
+                                            if (delta > 250) {
+                                                totalCaptureTime += delta.toInt()
+                                                previousCaptureTime = System.currentTimeMillis()
+                                                captureBitmap(capturingViewBounds, view)?.let { bmp ->
+                                                    Log.d(TAG, "Capture bitmap...")
+                                                    capturedBitmaps.add(bmp)
+                                                }
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -222,6 +241,40 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    val capturedBitmaps: MutableList<Bitmap> = mutableListOf()
+
+    private fun captureBitmap(capturingViewBounds: Rect?, view: View): Bitmap? {
+        val bounds = capturingViewBounds ?: return null // TODO("Show error of some kind in UI?")
+        val bmp = Bitmap.createBitmap(
+            bounds.width.roundToInt(), bounds.height.roundToInt(),
+            Bitmap.Config.ARGB_8888
+        ).applyCanvas {
+            translate(-bounds.left, -bounds.top)
+            view.draw(this)
+        }
+        return bmp
+    }
+
+    private fun saveBitmaps(bitmaps: List<Bitmap>) {
+        // TODO("figure out how I'm gunna do this...")
+//        // If API >= 29 we can use scoped storage and don't require permission to save images.
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+//            saveFileToScopedStorage("screenshot", bmp)
+//        } else {
+//            // Scoped storage doesn't exist before Android 29 so need to check permissions
+//            if (checkPermissions()) {
+//                saveFileToStorage("screenshot", bmp)
+//            } else {
+//                externalStoragePermissionRequest.launch(
+//                    arrayOf(
+//                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+//                        Manifest.permission.READ_EXTERNAL_STORAGE,
+//                    )
+//                )
+//            }
+//        }
     }
 }
 
@@ -245,6 +298,7 @@ fun RenderAsset(
     isEnabled: Boolean,
     onGestureStarted: () -> Unit,
     onGestureFinished: () -> Unit,
+    onGesture: () -> Unit,
 ) {
     var offset by remember { mutableStateOf(assetData.initialOffset) }
     var zoom by remember { mutableStateOf(1f) }
@@ -308,6 +362,7 @@ fun RenderAsset(
                         size = newSize
                         zoom = newScale
                         angle += gestureRotate
+                        onGesture()
                     }
                 )
             }
