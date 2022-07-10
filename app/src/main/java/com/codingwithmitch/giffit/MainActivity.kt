@@ -1,9 +1,22 @@
 package com.codingwithmitch.giffit
 
+import android.Manifest
+import android.content.ContentValues
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.media.ExifInterface
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
+import android.provider.MediaStore.Images.Media.getContentUri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
@@ -25,21 +38,101 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.applyCanvas
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
-import kotlin.math.*
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.OutputStream
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
+
 
 val TAG = "MitchsLog"
 
 class MainActivity : ComponentActivity() {
 
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun saveFileToScopedStorage(displayName: String, bitmap: Bitmap) {
+        val externalUri: Uri = getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        // Add content values so media is discoverable by android and added to common directories.
+        val contentValues = ContentValues()
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$displayName.png")
+        contentResolver.insert(externalUri, contentValues)?.let { fileUri ->
+            try {
+                val outputStream: OutputStream? = contentResolver.openOutputStream(fileUri)
+                outputStream.use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 85, out)
+                    out?.flush()
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun saveFileToStorage(displayName: String, bmp: Bitmap) {
+        val file = File("${Environment.getExternalStorageDirectory()}/Pictures", "$displayName.png")
+        if (!file.exists()) {
+            try {
+                // Add content values so media is discoverable by android and added to common directories.
+                val contentValues = ContentValues()
+                contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$displayName.png")
+                contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
+                    contentResolver.openOutputStream(uri)?.let { fos ->
+                        bmp.compress(Bitmap.CompressFormat.PNG, 85, fos)
+                        fos.flush()
+                        fos.close()
+                        Log.d(TAG, "saveFileToStorage: ${file}")
+                    }
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun checkPermissions(): Boolean  {
+        val writePermission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        val readPermission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE)
+        return writePermission == PackageManager.PERMISSION_GRANTED && readPermission == PackageManager.PERMISSION_GRANTED
+    }
+
+    private val externalStoragePermissionRequest = this@MainActivity.registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        permissions.entries.forEach {
+            if (!it.value) {
+                Toast.makeText(this@MainActivity, "To enable this permission you'll have to do so in system settings for this app.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Scoped storage doesn't exist before Android 29 so need to check permissions
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (!checkPermissions()) {
+                externalStoragePermissionRequest.launch(
+                    arrayOf(
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                    )
+                )
+            }
+        }
         setContent {
             GiffitTheme {
                 Surface(
@@ -47,13 +140,41 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
+                        val view = LocalView.current
                         Button(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp, vertical = 16.dp)
                                 .align(Alignment.End)
                             ,
                             onClick = {
-                                // TODO("Save image")
+                                // If API >= 29 we can use scoped storage and don't require permission to save images.
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                    val bmp = Bitmap.createBitmap(
+                                        view.width, view.height,
+                                        Bitmap.Config.ARGB_8888
+                                    ).applyCanvas {
+                                        view.draw(this)
+                                    }
+                                    saveFileToScopedStorage("screenshot", bmp)
+                                } else {
+                                    // Scoped storage doesn't exist before Android 29 so need to check permissions
+                                    if (checkPermissions()) {
+                                        val bmp = Bitmap.createBitmap(
+                                            view.width, view.height,
+                                            Bitmap.Config.ARGB_8888
+                                        ).applyCanvas {
+                                            view.draw(this)
+                                        }
+                                        saveFileToStorage("screenshot", bmp)
+                                    } else {
+                                        externalStoragePermissionRequest.launch(
+                                            arrayOf(
+                                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         ) {
                             Text("Save")
@@ -65,6 +186,13 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .background(Color.Gray)
                         ) {
+                            val image: Painter = painterResource(id = R.drawable.mitch)
+                            Image(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentScale = ContentScale.FillWidth,
+                                painter = image,
+                                contentDescription = ""
+                            )
                             samples.forEach {
                                 RenderShape(
                                     shapeData = it,
@@ -304,8 +432,7 @@ fun MySample() {
                 )
                 .transformable(
                     state = state
-                )
-            ,
+                ),
         ) {
             val selectedResource: Painter = painterResource(id = R.drawable.deal_with_it_sunglasses_default)
             Image(
