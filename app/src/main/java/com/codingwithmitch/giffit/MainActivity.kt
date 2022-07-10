@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -16,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -38,9 +39,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
@@ -49,13 +52,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.applyCanvas
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 
 
 val TAG = "MitchsLog"
@@ -141,18 +140,21 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         val view = LocalView.current
+                        var capturingViewBounds by remember { mutableStateOf<Rect?>(null) }
                         Button(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp, vertical = 16.dp)
                                 .align(Alignment.End)
                             ,
                             onClick = {
+                                val bounds = capturingViewBounds ?: return@Button
                                 // If API >= 29 we can use scoped storage and don't require permission to save images.
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                     val bmp = Bitmap.createBitmap(
-                                        view.width, view.height,
+                                        bounds.width.roundToInt(), bounds.height.roundToInt(),
                                         Bitmap.Config.ARGB_8888
                                     ).applyCanvas {
+                                        translate(-bounds.left, -bounds.top)
                                         view.draw(this)
                                     }
                                     saveFileToScopedStorage("screenshot", bmp)
@@ -160,9 +162,10 @@ class MainActivity : ComponentActivity() {
                                     // Scoped storage doesn't exist before Android 29 so need to check permissions
                                     if (checkPermissions()) {
                                         val bmp = Bitmap.createBitmap(
-                                            view.width, view.height,
+                                            bounds.width.roundToInt(), bounds.height.roundToInt(),
                                             Bitmap.Config.ARGB_8888
                                         ).applyCanvas {
+                                            translate(-bounds.left, -bounds.top)
                                             view.draw(this)
                                         }
                                         saveFileToStorage("screenshot", bmp)
@@ -179,23 +182,29 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text("Save")
                         }
-                        var activeShapeId by remember { mutableStateOf("one") }
+                        var activeShapeId by remember { mutableStateOf(-1) }
                         var isActiveShapeInMotion by remember { mutableStateOf(false) }
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Gray)
+                                .wrapContentSize()
                         ) {
                             val image: Painter = painterResource(id = R.drawable.mitch)
                             Image(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onGloballyPositioned {
+                                        Log.d(TAG, "topLeft: ${it.boundsInRoot().topLeft}")
+                                        Log.d(TAG, "bottomRight: ${it.boundsInRoot().bottomRight}")
+                                        capturingViewBounds = it.boundsInRoot()
+                                    }
+                                ,
                                 contentScale = ContentScale.FillWidth,
                                 painter = image,
                                 contentDescription = ""
                             )
-                            samples.forEach {
-                                RenderShape(
-                                    shapeData = it,
+                            assetList.forEach {
+                                RenderAsset(
+                                    assetData = it,
                                     isEnabled = it.id == activeShapeId,
                                     onGestureStarted = {
                                         if (!isActiveShapeInMotion) {
@@ -216,47 +225,40 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val samples: MutableList<ShapeData> = mutableListOf(
-    ShapeData(
-        id = "one",
-        color = Color.Blue,
-        initialOffset = Offset.Zero,
-        initialSize = Size(200f, 200f)
-    ),
-    ShapeData(
-        id = "two",
-        color = Color.Black,
-        initialOffset = Offset(-200f, -200f),
+private val assetList: MutableList<AssetData> = mutableListOf(
+    AssetData(
+        id = R.drawable.deal_with_it_sunglasses_default,
+        initialOffset = Offset(0f, 0f),
         initialSize = Size(200f, 200f)
     )
 )
 
-data class ShapeData(
-    val id: String,
-    val color: Color,
+data class AssetData(
+    @DrawableRes val id: Int,
     val initialOffset: Offset,
     val initialSize: Size,
 )
 
 @Composable
-fun RenderShape(
-    shapeData: ShapeData,
+fun RenderAsset(
+    assetData: AssetData,
     isEnabled: Boolean,
     onGestureStarted: () -> Unit,
     onGestureFinished: () -> Unit,
 ) {
-    var offset by remember { mutableStateOf(shapeData.initialOffset) }
+    var offset by remember { mutableStateOf(assetData.initialOffset) }
     var zoom by remember { mutableStateOf(1f) }
     var angle by remember { mutableStateOf(0f) }
-    var size by remember { mutableStateOf(shapeData.initialSize) }
+    var size by remember { mutableStateOf(assetData.initialSize) }
 
     // Not sure why I couldn't just use isEnabled but it doesn't work somehow.
     var enabled by remember { mutableStateOf(isEnabled) }
     if (enabled != isEnabled) {
         enabled = isEnabled
     }
-
-    Box(
+    val xOffset = with(LocalDensity.current) { -offset.x.toDp() }
+    val yOffset = with(LocalDensity.current) { -offset.y.toDp() }
+    Image(
         modifier = Modifier
             .zIndex(
                 if (enabled) {
@@ -266,20 +268,16 @@ fun RenderShape(
                 }
             )
             .size(width = size.width.dp, height = size.height.dp)
-            .offset {
-                IntOffset(
-                    -offset.x.toInt(),
-                    -offset.y.toInt()
-                )
-            }
+            .offset(
+                x = xOffset,
+                y = yOffset
+            )
             .pointerInput(Unit) {
                 detectTransformGesturesAndTouch(
                     onGestureStarted = {
-                        Log.d(TAG, "Gesture STARTED: ${shapeData.id}")
                         onGestureStarted()
                     },
                     onGestureFinished = {
-                        Log.d(TAG, "Gesture FINISHED: ${shapeData.id}")
                         onGestureFinished()
                     },
                     onGesture = { centroid, pan, gestureZoom, gestureRotate ->
@@ -310,13 +308,6 @@ fun RenderShape(
                         size = newSize
                         zoom = newScale
                         angle += gestureRotate
-//                        Log.d(TAG, "offsetX: ${offset.x}")
-//                        Log.d(TAG, "offsetY: ${offset.y}")
-//                        Log.d(TAG, "centroid: ${centroid}")
-//                        Log.d(TAG, "pan: ${centroid}")
-//                        Log.d(TAG, "gestureZoom: ${gestureZoom}")
-//                        Log.d(TAG, "currentZoom: ${zoom}")
-//                        Log.d(TAG, "gestureRotate: ${gestureRotate}")
                     }
                 )
             }
@@ -325,7 +316,9 @@ fun RenderShape(
                 transformOrigin = TransformOrigin.Center
             }
             .clip(RectangleShape)
-            .background(shapeData.color),
+        ,
+        painter = painterResource(id = assetData.id),
+        contentDescription = ""
     )
 }
 
