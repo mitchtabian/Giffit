@@ -4,15 +4,21 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.provider.MediaStore.Images.Media.getContentUri
 import android.util.Log
+import android.view.PixelCopy
 import android.view.View
+import android.view.Window
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -36,6 +42,7 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -45,6 +52,8 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.applyCanvas
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
@@ -107,59 +116,104 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        val view = LocalView.current
                         var capturingViewBounds by remember { mutableStateOf<Rect?>(null) }
                         var isRecording by remember { isBitmapCaptureJobRunning }
-                        Button(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp, vertical = 16.dp)
-                                .align(Alignment.End)
-                                .zIndex(3f)
-                            ,
-                            colors = if (isRecording) {
-                                ButtonDefaults.buttonColors(
-                                    backgroundColor = Color.Red
+                        var assetData by remember { assetData }
+                        var backgroundAsset: Uri? by remember { mutableStateOf(null) }
+                        var viewToCapture: View? by remember { mutableStateOf(null) }
+                        val backgroundAssetPickerLauncher = rememberLauncherForActivityResult(
+                            ActivityResultContracts.GetContent()
+                        ) { uri ->
+                            if (uri != null) {
+                                backgroundAsset = uri
+                            }
+                        }
+                        if (backgroundAsset != null) {
+                            Button(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                                    .align(Alignment.End)
+                                    .zIndex(3f)
+                                ,
+                                colors = if (isRecording) {
+                                    ButtonDefaults.buttonColors(
+                                        backgroundColor = Color.Red
+                                    )
+                                } else {
+                                    ButtonDefaults.buttonColors(
+                                        backgroundColor = MaterialTheme.colors.primary
+                                    )
+                                },
+                                onClick = {
+                                    isRecording = !isRecording
+                                    if (isRecording) { // Start recording
+                                        runBitmapCaptureJob(capturingViewBounds, viewToCapture)
+                                    } else { // End recording
+                                        isRecording = false
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    text = if (isRecording) {
+                                        "End"
+                                    } else {
+                                        "Start"
+                                    }
                                 )
-                            } else {
-                                ButtonDefaults.buttonColors(
-                                    backgroundColor = MaterialTheme.colors.primary
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .wrapContentSize()
+                            ) {
+                                val configuration = LocalConfiguration.current
+                                val view = LocalView.current
+                                viewToCapture = view
+//                                val image: Painter = painterResource(id = R.drawable.mitch)
+                                val image: Painter = rememberAsyncImagePainter(model = backgroundAsset)
+                                Image(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height((configuration.screenHeightDp * 0.6).dp)
+                                        .onGloballyPositioned {
+                                            capturingViewBounds = it.boundsInRoot()
+                                        }
+                                    ,
+                                    contentScale = ContentScale.Crop,
+                                    painter = image,
+                                    contentDescription = ""
                                 )
-                            },
-                            onClick = {
-                                isRecording = !isRecording
-                                if (isRecording) { // Start recording
-                                    runBitmapCaptureJob(capturingViewBounds, view)
-                                } else { // End recording
-                                    isRecording = false
+                                assetData?.let { RenderAsset(it) }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Button(
+                                    modifier = Modifier
+                                        .align(Alignment.Center),
+                                    onClick = {
+                                        backgroundAssetPickerLauncher.launch("image/*")
+                                    }
+                                ) {
+                                    Text("Choose background image")
                                 }
                             }
-                        ) {
-                            Text(
-                                text = if (isRecording) {
-                                    "End"
-                                } else {
-                                    "Start"
-                                }
-                            )
                         }
-                        var assetData by remember { assetData }
-                        Box(
-                            modifier = Modifier
-                                .wrapContentSize()
-                        ) {
-                            val image: Painter = painterResource(id = R.drawable.mitch)
-                            Image(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .onGloballyPositioned {
-                                        capturingViewBounds = it.boundsInRoot()
-                                    }
-                                ,
-                                contentScale = ContentScale.FillWidth,
-                                painter = image,
-                                contentDescription = ""
-                            )
-                            assetData?.let { RenderAsset(it) }
+                        if (backgroundAsset != null) {
+                            Button(
+                                onClick = {
+                                    backgroundAssetPickerLauncher.launch("image/*")
+                                }
+                            ) {
+                                Text("Choose background image")
+                            }
+                            Button(
+                                onClick = {
+                                    // File selector
+                                }
+                            ) {
+                                Text("Choose asset")
+                            }
                         }
                     }
                 }
@@ -167,16 +221,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun runBitmapCaptureJob(capturingViewBounds: Rect?, view: View) {
+    private fun runBitmapCaptureJob(capturingViewBounds: Rect?, view: View?) {
         if (capturingViewBounds == null) throw Exception("Invalid capture area.")
+        if (view == null) throw Exception("Invalid view.")
         CoroutineScope(Main).launch {
             var elapsedTime = 0
             while (elapsedTime < 3000 && isBitmapCaptureJobRunning.value) {
                 delay(250)
                 elapsedTime += 250
-                captureBitmap(capturingViewBounds, view)?.let { bmp ->
+                captureBitmap(
+                    rect = capturingViewBounds,
+                    view = view,
+                    window = window,
+                ) {
                     Log.d(TAG, "Capture bitmap...")
-                    capturedBitmaps.add(bmp)
+                    capturedBitmaps.add(it)
                 }
             }
             isBitmapCaptureJobRunning.value = false
@@ -253,20 +312,55 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun captureBitmap(capturingViewBounds: Rect?, view: View): Bitmap? {
-        val bounds = capturingViewBounds ?: return null
-        val bmp = Bitmap.createBitmap(
-            bounds.width.roundToInt(), bounds.height.roundToInt(),
-            Bitmap.Config.ARGB_8888
-        ).applyCanvas {
-            translate(-bounds.left, -bounds.top)
-            view.draw(this)
+    private fun captureBitmap(rect: Rect?, view: View, window: Window, bitmapCallback: (Bitmap)->Unit) {
+        if (rect == null) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val bitmap = Bitmap.createBitmap(
+                view.width, view.height,
+                Bitmap.Config.ARGB_8888
+            )
+            val locationOfViewInWindow = IntArray(2)
+            view.getLocationInWindow(locationOfViewInWindow)
+            val xCoordinate = locationOfViewInWindow[0]
+            val yCoordinate = locationOfViewInWindow[1]
+            val scope = android.graphics.Rect(
+                xCoordinate,
+                yCoordinate,
+                xCoordinate + view.width,
+                yCoordinate + view.height
+            )
+            // Take screenshot
+            PixelCopy.request(
+                window,
+                scope,
+                bitmap,
+                { p0 ->
+                    if (p0 == PixelCopy.SUCCESS) {
+                        // crop the screenshot
+                        val bmp = Bitmap.createBitmap(
+                            bitmap,
+                            rect.left.toInt(),
+                            rect.top.toInt(),
+                            rect.width.roundToInt(),
+                            rect.height.roundToInt()
+                        )
+                        bitmapCallback.invoke(bmp)
+                    }
+                },
+                Handler(Looper.getMainLooper()) )
+        } else {
+            val bitmap = Bitmap.createBitmap(
+                rect.width.roundToInt(),
+                rect.height.roundToInt(),
+                Bitmap.Config.ARGB_8888
+            ).applyCanvas {
+                translate(-rect.left, -rect.top)
+                view.draw(this)
+            }
+            bitmapCallback.invoke(bitmap)
         }
-        return bmp
     }
 }
-
-
 
 @Composable
 fun RenderAsset(
