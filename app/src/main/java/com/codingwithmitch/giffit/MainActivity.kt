@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -33,10 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
@@ -52,8 +48,10 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.applyCanvas
-import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageView
+import com.canhub.cropper.options
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
@@ -62,9 +60,9 @@ import kotlinx.coroutines.launch
 import java.io.*
 import kotlin.math.*
 
-
 val TAG = "MitchsLog"
 
+@OptIn(ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
 
     private fun checkPermissions(): Boolean  {
@@ -86,14 +84,6 @@ class MainActivity : ComponentActivity() {
     private var isBitmapCaptureJobRunning = mutableStateOf(false)
 
     private val capturedBitmaps: MutableList<Bitmap> = mutableListOf()
-
-    private val assetData: MutableState<AssetData?> = mutableStateOf(
-        AssetData(
-            id = R.drawable.deal_with_it_sunglasses_default,
-            initialOffset = Offset(0f, 0f),
-            initialSize = Size(200f, 200f)
-        )
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,14 +108,31 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.fillMaxSize()) {
                         var capturingViewBounds by remember { mutableStateOf<Rect?>(null) }
                         var isRecording by remember { isBitmapCaptureJobRunning }
-                        var assetData by remember { assetData }
                         var backgroundAsset: Uri? by remember { mutableStateOf(null) }
-                        var viewToCapture: View? by remember { mutableStateOf(null) }
-                        val backgroundAssetPickerLauncher = rememberLauncherForActivityResult(
+                        val view = LocalView.current
+                        val crop = rememberLauncherForActivityResult(
+                            CropImageContract()
+                        ) { result ->
+                            if (result.isSuccessful) {
+                                // use the returned uri
+                                backgroundAsset = result.uriContent
+                            } else {
+                                // an error occurred
+                                val exception = result.error
+                                Log.e(TAG, "Crop exception: ${exception}", )
+                            }
+                        }
+                        val backgroundAssetPicker = rememberLauncherForActivityResult(
                             ActivityResultContracts.GetContent()
                         ) { uri ->
                             if (uri != null) {
-                                backgroundAsset = uri
+                                crop.launch(
+                                    options(
+                                        uri = uri,
+                                    ) {
+                                        setGuidelines(CropImageView.Guidelines.ON)
+                                    }
+                                )
                             }
                         }
                         if (backgroundAsset != null) {
@@ -147,7 +154,7 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     isRecording = !isRecording
                                     if (isRecording) { // Start recording
-                                        runBitmapCaptureJob(capturingViewBounds, viewToCapture)
+                                        runBitmapCaptureJob(capturingViewBounds, view)
                                     } else { // End recording
                                         isRecording = false
                                     }
@@ -157,7 +164,7 @@ class MainActivity : ComponentActivity() {
                                     text = if (isRecording) {
                                         "End"
                                     } else {
-                                        "Start"
+                                        "Record"
                                     }
                                 )
                             }
@@ -166,9 +173,6 @@ class MainActivity : ComponentActivity() {
                                     .wrapContentSize()
                             ) {
                                 val configuration = LocalConfiguration.current
-                                val view = LocalView.current
-                                viewToCapture = view
-//                                val image: Painter = painterResource(id = R.drawable.mitch)
                                 val image: Painter = rememberAsyncImagePainter(model = backgroundAsset)
                                 Image(
                                     modifier = Modifier
@@ -182,7 +186,13 @@ class MainActivity : ComponentActivity() {
                                     painter = image,
                                     contentDescription = ""
                                 )
-                                assetData?.let { RenderAsset(it) }
+                                RenderAsset(
+                                    assetData = AssetData(
+                                        id = R.drawable.deal_with_it_sunglasses_default,
+                                        initialOffset = Offset(0f, 0f),
+                                        initialSize = Size(200f, 200f)
+                                    )
+                                )
                             }
                         } else {
                             Box(
@@ -192,7 +202,7 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier
                                         .align(Alignment.Center),
                                     onClick = {
-                                        backgroundAssetPickerLauncher.launch("image/*")
+                                        backgroundAssetPicker.launch("image/*")
                                     }
                                 ) {
                                     Text("Choose background image")
@@ -201,18 +211,14 @@ class MainActivity : ComponentActivity() {
                         }
                         if (backgroundAsset != null) {
                             Button(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                                    .align(Alignment.End),
                                 onClick = {
-                                    backgroundAssetPickerLauncher.launch("image/*")
+                                    backgroundAssetPicker.launch("image/*")
                                 }
                             ) {
-                                Text("Choose background image")
-                            }
-                            Button(
-                                onClick = {
-                                    // File selector
-                                }
-                            ) {
-                                Text("Choose asset")
+                                Text("Change background image")
                             }
                         }
                     }
@@ -226,7 +232,7 @@ class MainActivity : ComponentActivity() {
         if (view == null) throw Exception("Invalid view.")
         CoroutineScope(Main).launch {
             var elapsedTime = 0
-            while (elapsedTime < 3000 && isBitmapCaptureJobRunning.value) {
+            while (elapsedTime < 4000 && isBitmapCaptureJobRunning.value) {
                 delay(250)
                 elapsedTime += 250
                 captureBitmap(
@@ -362,6 +368,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun RenderAsset(
     assetData: AssetData,
@@ -373,6 +380,8 @@ fun RenderAsset(
 
     val xOffset = with(LocalDensity.current) { -offset.x.toDp() }
     val yOffset = with(LocalDensity.current) { -offset.y.toDp() }
+
+    val painter: Painter = rememberAsyncImagePainter(model = assetData.id)
     Image(
         modifier = Modifier
             .size(width = size.width.dp, height = size.height.dp)
@@ -411,7 +420,7 @@ fun RenderAsset(
             }
             .clip(RectangleShape)
         ,
-        painter = painterResource(id = assetData.id),
+        painter = painter,
         contentDescription = ""
     )
 }
