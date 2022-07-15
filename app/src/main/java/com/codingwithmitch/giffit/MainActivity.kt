@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -22,6 +23,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
@@ -41,29 +43,36 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.applyCanvas
+import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers.Main
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.*
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.util.*
 import kotlin.math.*
 
 val TAG = "MitchsLog"
 
 @OptIn(ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
+
+    private lateinit var imageLoader: ImageLoader
 
     private fun checkPermissions(): Boolean  {
         val writePermission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -88,8 +97,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (!::imageLoader.isInitialized) {
+            imageLoader = ImageLoader.Builder(this)
+                .components {
+                    if (SDK_INT >= 28) {
+                        add(ImageDecoderDecoder.Factory())
+                    } else {
+                        add(GifDecoder.Factory())
+                    }
+                }
+                .build()
+        }
+
         // Scoped storage doesn't exist before Android 29 so need to check permissions
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        if (SDK_INT < Build.VERSION_CODES.Q) {
             if (!checkPermissions()) {
                 externalStoragePermissionRequest.launch(
                     arrayOf(
@@ -109,7 +130,19 @@ class MainActivity : ComponentActivity() {
                         var capturingViewBounds by remember { mutableStateOf<Rect?>(null) }
                         var isRecording by remember { isBitmapCaptureJobRunning }
                         var backgroundAsset: Uri? by remember { mutableStateOf(null) }
+                        var assetData by remember {
+                            mutableStateOf(
+                                AssetData(
+                                    id = R.drawable.deal_with_it_sunglasses_default,
+                                    initialOffset = Offset(0f, 0f),
+                                    initialSize = Size(200f, 200f)
+                                )
+                            )
+                        }
+                        var gifUri: Uri? by remember { mutableStateOf(null) }
+                        var isBuildingGif by remember { mutableStateOf(false) }
                         val view = LocalView.current
+                        val configuration = LocalConfiguration.current
                         val crop = rememberLauncherForActivityResult(
                             CropImageContract()
                         ) { result ->
@@ -118,6 +151,7 @@ class MainActivity : ComponentActivity() {
                                 backgroundAsset = result.uriContent
                             } else {
                                 // an error occurred
+                                // TODO("Show error?")
                                 val exception = result.error
                                 Log.e(TAG, "Crop exception: ${exception}", )
                             }
@@ -135,90 +169,153 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-                        if (backgroundAsset != null) {
-                            Button(
+                        if (gifUri != null || isBuildingGif) {
+                            Box(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                                    .align(Alignment.End)
-                                    .zIndex(3f)
-                                ,
-                                colors = if (isRecording) {
-                                    ButtonDefaults.buttonColors(
-                                        backgroundColor = Color.Red
-                                    )
-                                } else {
-                                    ButtonDefaults.buttonColors(
-                                        backgroundColor = MaterialTheme.colors.primary
-                                    )
-                                },
-                                onClick = {
-                                    isRecording = !isRecording
-                                    if (isRecording) { // Start recording
-                                        runBitmapCaptureJob(capturingViewBounds, view)
-                                    } else { // End recording
-                                        isRecording = false
+                                    .fillMaxSize()
+                                    .background(Color.Black)
+                            ) {
+                                if (gifUri != null) {
+                                    Column(
+                                        modifier = Modifier
+                                            .wrapContentHeight()
+                                            .align(Alignment.Center)
+                                    ) {
+                                        val image: Painter = rememberAsyncImagePainter(model = gifUri, imageLoader = imageLoader)
+                                        Image(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height((configuration.screenHeightDp * 0.6).dp)
+                                            ,
+                                            contentScale = ContentScale.Crop,
+                                            painter = image,
+                                            contentDescription = ""
+                                        )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 16.dp)
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    gifUri = null
+                                                    Toast.makeText(this@MainActivity, "Saved", Toast.LENGTH_SHORT).show()
+                                                }
+                                            ) {
+                                                Text("Keep")
+                                            }
+                                            Spacer(Modifier.weight(1f))
+                                            Button(
+                                                onClick = {
+                                                    gifUri?.let {
+                                                        discardGif(it)
+                                                        gifUri = null
+                                                    }
+                                                }
+                                            ) {
+                                                Text("Discard")
+                                            }
+                                        }
                                     }
                                 }
-                            ) {
-                                Text(
-                                    text = if (isRecording) {
-                                        "End"
-                                    } else {
-                                        "Record"
-                                    }
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .wrapContentSize()
-                            ) {
-                                val configuration = LocalConfiguration.current
-                                val image: Painter = rememberAsyncImagePainter(model = backgroundAsset)
-                                Image(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height((configuration.screenHeightDp * 0.6).dp)
-                                        .onGloballyPositioned {
-                                            capturingViewBounds = it.boundsInRoot()
-                                        }
-                                    ,
-                                    contentScale = ContentScale.Crop,
-                                    painter = image,
-                                    contentDescription = ""
-                                )
-                                RenderAsset(
-                                    assetData = AssetData(
-                                        id = R.drawable.deal_with_it_sunglasses_default,
-                                        initialOffset = Offset(0f, 0f),
-                                        initialSize = Size(200f, 200f)
+                                if (isBuildingGif) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .align(Alignment.Center),
+                                        color = Color.Blue,
+                                        strokeWidth = 4.dp
                                     )
-                                )
+                                }
                             }
                         } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize()
-                            ) {
+                            if (backgroundAsset != null) {
                                 Button(
                                     modifier = Modifier
-                                        .align(Alignment.Center),
+                                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                                        .align(Alignment.End)
+                                        .zIndex(3f)
+                                    ,
+                                    colors = if (isRecording) {
+                                        ButtonDefaults.buttonColors(
+                                            backgroundColor = Color.Red
+                                        )
+                                    } else {
+                                        ButtonDefaults.buttonColors(
+                                            backgroundColor = MaterialTheme.colors.primary
+                                        )
+                                    },
+                                    onClick = {
+                                        isBitmapCaptureJobRunning.value = !isBitmapCaptureJobRunning.value
+                                        if (isRecording) { // Start recording
+                                            runBitmapCaptureJob(
+                                                capturingViewBounds,
+                                                view,
+                                                onRecordingComplete = {
+                                                    isBuildingGif = true
+                                                }
+                                            ) {
+                                                isBuildingGif = false
+                                                gifUri = it
+                                            }
+                                        } else { // End recording
+                                            isBitmapCaptureJobRunning.value = false
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = if (isRecording) {
+                                            "End"
+                                        } else {
+                                            "Record"
+                                        }
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .wrapContentSize()
+                                ) {
+                                    val image: Painter = rememberAsyncImagePainter(model = backgroundAsset)
+                                    Image(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height((configuration.screenHeightDp * 0.6).dp)
+                                            .onGloballyPositioned {
+                                                capturingViewBounds = it.boundsInRoot()
+                                            }
+                                        ,
+                                        contentScale = ContentScale.Crop,
+                                        painter = image,
+                                        contentDescription = ""
+                                    )
+                                    RenderAsset(assetData = assetData)
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Button(
+                                        modifier = Modifier
+                                            .align(Alignment.Center),
+                                        onClick = {
+                                            backgroundAssetPicker.launch("image/*")
+                                        }
+                                    ) {
+                                        Text("Choose background image")
+                                    }
+                                }
+                            }
+                            if (backgroundAsset != null && !isRecording) {
+                                Button(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                                        .align(Alignment.End),
                                     onClick = {
                                         backgroundAssetPicker.launch("image/*")
                                     }
                                 ) {
-                                    Text("Choose background image")
+                                    Text("Change background image")
                                 }
-                            }
-                        }
-                        if (backgroundAsset != null) {
-                            Button(
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                                    .align(Alignment.End),
-                                onClick = {
-                                    backgroundAssetPicker.launch("image/*")
-                                }
-                            ) {
-                                Text("Change background image")
                             }
                         }
                     }
@@ -227,10 +324,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun runBitmapCaptureJob(capturingViewBounds: Rect?, view: View?) {
+    private fun discardGif(uri: Uri) {
+        contentResolver.delete(uri, null, null)
+    }
+
+    private fun runBitmapCaptureJob(
+        capturingViewBounds: Rect?,
+        view: View?,
+        onRecordingComplete: () -> Unit,
+        onSaved: (Uri) -> Unit
+    ) {
         if (capturingViewBounds == null) throw Exception("Invalid capture area.")
         if (view == null) throw Exception("Invalid view.")
-        CoroutineScope(Main).launch {
+        CoroutineScope(IO).launch {
             var elapsedTime = 0
             while (elapsedTime < 4000 && isBitmapCaptureJobRunning.value) {
                 delay(250)
@@ -240,38 +346,49 @@ class MainActivity : ComponentActivity() {
                     view = view,
                     window = window,
                 ) {
-                    Log.d(TAG, "Capture bitmap...")
-                    capturedBitmaps.add(it)
+                    // Prevent Concurrent modification exception depending on timing
+                    if (isBitmapCaptureJobRunning.value) {
+                        Log.d(TAG, "Capture bitmap...")
+                        capturedBitmaps.add(it)
+                    }
                 }
             }
             isBitmapCaptureJobRunning.value = false
-            buildGifFromBitmaps()
+            onRecordingComplete()
+            buildGifFromBitmaps(capturedBitmaps) {
+                onSaved(it)
+            }
         }
     }
 
-    private fun buildGifFromBitmaps() {
+    private fun buildGifFromBitmaps(bitmaps: List<Bitmap>, onSaved: (Uri) -> Unit) {
         val writer = AnimatedGIFWriter(true)
         val bos = ByteArrayOutputStream()
         writer.prepareForWrite(bos, -1, -1)
-        for(bitmap in capturedBitmaps) {
+        for(bitmap in bitmaps) {
             writer.writeFrame(bos, bitmap)
         }
         writer.finishWrite(bos)
-        saveGif("animated", bos.toByteArray())
+        val byteArray = bos.toByteArray()
+        saveGif(byteArray) {
+            onSaved(it)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun saveGifToScopedStorage(displayName: String, bytes: ByteArray) {
+    private fun saveGifToScopedStorage(bytes: ByteArray, onSaved: (Uri) -> Unit) {
         try {
             val externalUri: Uri = getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             // Add content values so media is discoverable by android and added to common directories.
             val contentValues = ContentValues()
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$displayName.gif")
+            val fileName = FileNameBuilder.buildFileNameAPI26()
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "${fileName}.gif")
             contentResolver.insert(externalUri, contentValues)?.let { fileUri ->
                 contentResolver.openOutputStream(fileUri)?.let { os ->
                     os.write(bytes)
                     os.flush()
                     os.close()
+                    onSaved(fileUri)
                 }
             }
         } catch (e: IOException) {
@@ -280,16 +397,18 @@ class MainActivity : ComponentActivity() {
         capturedBitmaps.clear()
     }
 
-    private fun saveGifToStorage(displayName: String, bytes: ByteArray) {
+    private fun saveGifToStorage(bytes: ByteArray, onSaved: (Uri) -> Unit) {
         try {
             // Add content values so media is discoverable by android and added to common directories.
             val contentValues = ContentValues()
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$displayName.png")
+            val fileName = FileNameBuilder.buildFileName()
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.gif")
             contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
                 contentResolver.openOutputStream(uri)?.let { os ->
                     os.write(bytes)
                     os.flush()
                     os.close()
+                    onSaved(uri)
                 }
             }
 
@@ -299,14 +418,18 @@ class MainActivity : ComponentActivity() {
         capturedBitmaps.clear()
     }
 
-    private fun saveGif(displayName: String, bytes: ByteArray) {
+    private fun saveGif(bytes: ByteArray, onSaved: (Uri) -> Unit) {
         // If API >= 29 we can use scoped storage and don't require permission to save images.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            saveGifToScopedStorage(displayName, bytes)
+        if (SDK_INT >= Build.VERSION_CODES.Q) {
+            saveGifToScopedStorage(bytes) {
+                onSaved(it)
+            }
         } else {
             // Scoped storage doesn't exist before Android 29 so need to check permissions
             if (checkPermissions()) {
-                saveGifToStorage(displayName, bytes)
+                saveGifToStorage(bytes) {
+                    onSaved(it)
+                }
             } else {
                 externalStoragePermissionRequest.launch(
                     arrayOf(
@@ -320,7 +443,7 @@ class MainActivity : ComponentActivity() {
 
     private fun captureBitmap(rect: Rect?, view: View, window: Window, bitmapCallback: (Bitmap)->Unit) {
         if (rect == null) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (SDK_INT >= Build.VERSION_CODES.O) {
             val bitmap = Bitmap.createBitmap(
                 view.width, view.height,
                 Bitmap.Config.ARGB_8888
