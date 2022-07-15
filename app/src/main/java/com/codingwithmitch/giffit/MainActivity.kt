@@ -49,6 +49,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.applyCanvas
+import androidx.core.net.toFile
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.GifDecoder
@@ -59,12 +60,10 @@ import com.canhub.cropper.options
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.*
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.util.*
 import kotlin.math.*
 
 val TAG = "MitchsLog"
@@ -130,6 +129,7 @@ class MainActivity : ComponentActivity() {
                         var capturingViewBounds by remember { mutableStateOf<Rect?>(null) }
                         var isRecording by remember { isBitmapCaptureJobRunning }
                         var backgroundAsset: Uri? by remember { mutableStateOf(null) }
+                        var bitmap: Bitmap? by remember { mutableStateOf(null) }
                         var assetData by remember {
                             mutableStateOf(
                                 AssetData(
@@ -141,6 +141,10 @@ class MainActivity : ComponentActivity() {
                         }
                         var gifUri: Uri? by remember { mutableStateOf(null) }
                         var isBuildingGif by remember { mutableStateOf(false) }
+                        var adjustedBytes by remember { mutableStateOf(0) }
+                        var sizePct by remember { mutableStateOf(100) }
+                        var uncroppedImageSize by remember { mutableStateOf(0) }
+                        var croppedImageSize by remember { mutableStateOf(0) }
                         val view = LocalView.current
                         val configuration = LocalConfiguration.current
                         val crop = rememberLauncherForActivityResult(
@@ -149,17 +153,48 @@ class MainActivity : ComponentActivity() {
                             if (result.isSuccessful) {
                                 // use the returned uri
                                 backgroundAsset = result.uriContent
+
+                                val originalWidth = result.wholeImageRect?.width() ?: 0
+                                val originalHeight = result.wholeImageRect?.height() ?: 0
+                                val croppedWidth = result.cropRect?.width() ?: 0
+                                val croppedHeight = result.cropRect?.height() ?: 0
+
+                                // We can estimate the size of the cropped image using the difference in area.
+                                val area = originalHeight * originalWidth
+                                val croppedArea = croppedHeight * croppedWidth
+                                val deltaArea = area - croppedArea
+                                // How much % of the area was removed from the crop
+                                val pctAreaDelta = deltaArea.toFloat() / area.toFloat()
+                                croppedImageSize = (uncroppedImageSize.toFloat() * (1 - pctAreaDelta)).toInt()
+
+                                CoroutineScope(Main).launch {
+                                    // TODO("Clean this up later with a callback or something to remove delay")
+                                    delay(1000) // delay 1000ms to wait for image to be set
+                                    // Capture a bitmap to estimate initial size of gif.
+                                    captureBitmap(
+                                        rect = capturingViewBounds,
+                                        view = view,
+                                        window = window,
+                                        sizePercentage = 1f
+                                    ) {
+                                        bitmap = it
+                                    }
+                                }
                             } else {
                                 // an error occurred
                                 // TODO("Show error?")
                                 val exception = result.error
-                                Log.e(TAG, "Crop exception: ${exception}", )
+                                Log.e(TAG, "Crop exception: ${exception}")
                             }
                         }
                         val backgroundAssetPicker = rememberLauncherForActivityResult(
                             ActivityResultContracts.GetContent()
                         ) { uri ->
                             if (uri != null) {
+                                contentResolver.openInputStream(uri)?.let {
+                                    uncroppedImageSize = it.available()
+                                    it.close()
+                                }
                                 crop.launch(
                                     options(
                                         uri = uri,
@@ -251,6 +286,7 @@ class MainActivity : ComponentActivity() {
                                             runBitmapCaptureJob(
                                                 capturingViewBounds,
                                                 view,
+                                                sizePercentage = sizePct.toFloat() / 100,
                                                 onRecordingComplete = {
                                                     isBuildingGif = true
                                                 }
@@ -306,15 +342,55 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             if (backgroundAsset != null && !isRecording) {
-                                Button(
+                                Column(
                                     modifier = Modifier
+                                        .fillMaxWidth()
                                         .padding(horizontal = 16.dp, vertical = 16.dp)
-                                        .align(Alignment.End),
-                                    onClick = {
-                                        backgroundAssetPicker.launch("image/*")
-                                    }
                                 ) {
-                                    Text("Change background image")
+                                    if (bitmap != null) {
+                                        LaunchedEffect(key1 = croppedImageSize) {
+                                            adjustedBytes = croppedImageSize
+                                        }
+                                        Text(
+                                            modifier = Modifier.align(Alignment.End),
+                                            style = MaterialTheme.typography.h6,
+                                            text = "Approximate gif size"
+                                        )
+                                        Text(
+                                            modifier = Modifier.align(Alignment.End),
+                                            style = MaterialTheme.typography.body1,
+                                            text = "${adjustedBytes / 1024} KB" // convert to bytes -> KB
+                                        )
+                                        Text(text = "$sizePct")
+                                        var sliderPosition by remember { mutableStateOf(100f) }
+                                        Slider(
+                                            value = sliderPosition,
+                                            valueRange = 5f..100f,
+                                            onValueChange = {
+                                                sliderPosition = it
+                                                sizePct = sliderPosition.toInt()
+                                                adjustedBytes = croppedImageSize * sizePct / 100
+                                            },
+                                        )
+                                    } else {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier
+                                                .size(25.dp)
+                                                .align(Alignment.End),
+                                            color = Color.Blue,
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                    Button(
+                                        modifier = Modifier
+                                            .align(Alignment.End)
+                                            .padding(vertical = 16.dp),
+                                        onClick = {
+                                            backgroundAssetPicker.launch("image/*")
+                                        }
+                                    ) {
+                                        Text("Change background image")
+                                    }
                                 }
                             }
                         }
@@ -328,12 +404,17 @@ class MainActivity : ComponentActivity() {
         contentResolver.delete(uri, null, null)
     }
 
+    /**
+     * @param sizePercentage: 0.05..1
+     */
     private fun runBitmapCaptureJob(
         capturingViewBounds: Rect?,
         view: View?,
+        sizePercentage: Float,
         onRecordingComplete: () -> Unit,
         onSaved: (Uri) -> Unit
     ) {
+        if (sizePercentage < 0.05 || sizePercentage > 1) throw Exception("Invalid resizing percentage.")
         if (capturingViewBounds == null) throw Exception("Invalid capture area.")
         if (view == null) throw Exception("Invalid view.")
         CoroutineScope(IO).launch {
@@ -345,10 +426,10 @@ class MainActivity : ComponentActivity() {
                     rect = capturingViewBounds,
                     view = view,
                     window = window,
+                    sizePercentage = sizePercentage,
                 ) {
                     // Prevent Concurrent modification exception depending on timing
                     if (isBitmapCaptureJobRunning.value) {
-                        Log.d(TAG, "Capture bitmap...")
                         capturedBitmaps.add(it)
                     }
                 }
@@ -361,7 +442,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun buildGifFromBitmaps(bitmaps: List<Bitmap>, onSaved: (Uri) -> Unit) {
+    private fun buildGifFromBitmaps(
+        bitmaps: List<Bitmap>,
+        onSaved: (Uri) -> Unit
+    ) {
         val writer = AnimatedGIFWriter(true)
         val bos = ByteArrayOutputStream()
         writer.prepareForWrite(bos, -1, -1)
@@ -376,7 +460,10 @@ class MainActivity : ComponentActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun saveGifToScopedStorage(bytes: ByteArray, onSaved: (Uri) -> Unit) {
+    private fun saveGifToScopedStorage(
+        bytes: ByteArray,
+        onSaved: (Uri) -> Unit
+    ) {
         try {
             val externalUri: Uri = getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             // Add content values so media is discoverable by android and added to common directories.
@@ -418,7 +505,10 @@ class MainActivity : ComponentActivity() {
         capturedBitmaps.clear()
     }
 
-    private fun saveGif(bytes: ByteArray, onSaved: (Uri) -> Unit) {
+    private fun saveGif(
+        bytes: ByteArray,
+        onSaved: (Uri) -> Unit
+    ) {
         // If API >= 29 we can use scoped storage and don't require permission to save images.
         if (SDK_INT >= Build.VERSION_CODES.Q) {
             saveGifToScopedStorage(bytes) {
@@ -441,13 +531,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun captureBitmap(rect: Rect?, view: View, window: Window, bitmapCallback: (Bitmap)->Unit) {
+    /**
+     * @param sizePercentage: 0.05f..1
+     */
+    private fun resizeBitmap(bitmap: Bitmap, sizePercentage: Float): Bitmap {
+        val targetWidth = (bitmap.width * sizePercentage).toInt()
+        val targetHeight = (bitmap.height * sizePercentage).toInt()
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, false)
+    }
+
+    /**
+     * @param sizePercentage: 0.05..1
+     */
+    private fun captureBitmap(
+        rect: Rect?,
+        view: View,
+        window: Window,
+        sizePercentage: Float,
+        bitmapCallback: (Bitmap)->Unit
+    ) {
         if (rect == null) return
         if (SDK_INT >= Build.VERSION_CODES.O) {
+
             val bitmap = Bitmap.createBitmap(
                 view.width, view.height,
                 Bitmap.Config.ARGB_8888
             )
+
             val locationOfViewInWindow = IntArray(2)
             view.getLocationInWindow(locationOfViewInWindow)
             val xCoordinate = locationOfViewInWindow[0]
@@ -466,22 +576,29 @@ class MainActivity : ComponentActivity() {
                 { p0 ->
                     if (p0 == PixelCopy.SUCCESS) {
                         // crop the screenshot
-                        val bmp = Bitmap.createBitmap(
-                            bitmap,
-                            rect.left.toInt(),
-                            rect.top.toInt(),
-                            rect.width.roundToInt(),
-                            rect.height.roundToInt()
+                        bitmapCallback.invoke(
+                            resizeBitmap(
+                                bitmap = Bitmap.createBitmap(
+                                    bitmap,
+                                    rect.left.toInt(),
+                                    rect.top.toInt(),
+                                    rect.width.roundToInt(),
+                                    rect.height.roundToInt()
+                                ),
+                                sizePercentage = sizePercentage
+                            )
                         )
-                        bitmapCallback.invoke(bmp)
                     }
                 },
                 Handler(Looper.getMainLooper()) )
         } else {
-            val bitmap = Bitmap.createBitmap(
-                rect.width.roundToInt(),
-                rect.height.roundToInt(),
-                Bitmap.Config.ARGB_8888
+            val bitmap = resizeBitmap(
+                bitmap = Bitmap.createBitmap(
+                    rect.width.roundToInt(),
+                    rect.height.roundToInt(),
+                    Bitmap.Config.ARGB_8888
+                ),
+                sizePercentage = sizePercentage
             ).applyCanvas {
                 translate(-rect.left, -rect.top)
                 view.draw(this)
