@@ -1,6 +1,7 @@
 package com.codingwithmitch.giffit
 
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
@@ -29,6 +30,8 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import com.codingwithmitch.giffit.BitmapCaptureJobState.*
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -60,14 +63,12 @@ fun RecordButton(
             },
             onClick = {
                 val newJobState = when(isRecording) {
-                    true -> BitmapCaptureJobState.Idle
-                    false -> BitmapCaptureJobState.Running
+                    true -> Idle
+                    false -> Running
                 }
                 updateBitmapCaptureJobState(newJobState)
-                if (!isRecording) { // Start recording
+                if (newJobState == Running) { // Start recording
                     startBitmapCaptureJob()
-                } else { // End recording
-                    updateBitmapCaptureJobState(BitmapCaptureJobState.Idle)
                 }
             }
         ) {
@@ -230,6 +231,7 @@ fun DisplayGif(
             }
         }
         if (isBuildingGif) {
+            Log.d(TAG, "isBuildingGif: ${isBuildingGif}")
             CircularProgressIndicator(
                 modifier = Modifier
                     .size(50.dp)

@@ -26,13 +26,11 @@ import coil.decode.ImageDecoderDecoder
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
-import com.codingwithmitch.giffit.BitmapUtils.buildGifFromBitmapsAndSave
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.BitmapUtils.discardGif
 import com.codingwithmitch.giffit.BitmapUtils.estimateCroppedImageSize
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
-
-val TAG = "MitchsLog"
 
 @OptIn(ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
@@ -97,7 +95,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         var gifUri: Uri? by remember { mutableStateOf(null) }
-                        var isBuildingGif by remember { mutableStateOf(false) }
                         var adjustedBytes by remember { mutableStateOf(0) }
                         var sizePct by remember { mutableStateOf(100) }
                         var uncroppedImageSize by remember { mutableStateOf(0) }
@@ -142,11 +139,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-                        if (gifUri != null || isBuildingGif) {
+                        if (gifUri != null || viewModel.isBuildingGif.value) {
+                            Log.d(TAG, "Render: isBuildingGif: ${viewModel.isBuildingGif}")
                             DisplayGif(
                                 gifUri = gifUri,
                                 imageLoader = imageLoader,
-                                isBuildingGif = isBuildingGif,
+                                isBuildingGif = viewModel.isBuildingGif.value,
                                 discardGif = {
                                     gifUri?.let {
                                         discardGif(it)
@@ -162,24 +160,20 @@ class MainActivity : ComponentActivity() {
                                 RecordButton(
                                     isRecording = bitmapCaptureJobState == BitmapCaptureJobState.Running,
                                     updateBitmapCaptureJobState = { state ->
+                                        Log.d(TAG, "Update job state: ${state}")
                                         viewModel.bitmapCaptureJobState.value = state
                                     },
                                     startBitmapCaptureJob = {
-                                        viewModel.startBitmapCaptureJob(
+                                        viewModel.runBitmapCaptureJob(
                                             capturingViewBounds = capturingViewBounds,
                                             window = window,
                                             view = view,
                                             sizePercentage = sizePct.toFloat() / 100,
                                             onRecordingComplete = {
-                                                isBuildingGif = true
-                                                viewModel.bitmapCaptureJobState.value = BitmapCaptureJobState.Idle
-                                                buildGifFromBitmapsAndSave(
+                                                viewModel.buildGif(
                                                     context = this@MainActivity,
-                                                    bitmaps = viewModel.capturedBitmaps.value,
                                                     onSaved = {
-                                                        isBuildingGif = false
                                                         gifUri = it
-                                                        viewModel.capturedBitmaps.value = listOf()
                                                     },
                                                     launchPermissionRequest = {
                                                         externalStoragePermissionRequest.launch(

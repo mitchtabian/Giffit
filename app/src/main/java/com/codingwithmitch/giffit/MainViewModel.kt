@@ -1,11 +1,14 @@
 package com.codingwithmitch.giffit
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
@@ -15,185 +18,113 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.core.graphics.applyCanvas
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Idle
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.codingwithmitch.giffit.domain.Constants.TAG
+import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.domain.DataState.Loading.*
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.interactors.BuildGif
+import com.codingwithmitch.giffit.interactors.CaptureBitmaps
+import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlin.math.roundToInt
 
 class MainViewModel : ViewModel() {
 
+    private val ioScope = CoroutineScope(IO)
+    private val captureBitmaps = CaptureBitmaps()
+    private val buildGif = BuildGif()
+
     val bitmapCaptureJobState: MutableState<BitmapCaptureJobState> = mutableStateOf(Idle)
     val capturedBitmaps: MutableState<List<Bitmap>> = mutableStateOf(listOf())
+    val loadingState: MutableState<LoadingState> = mutableStateOf(IDLE)
+    val error: MutableState<String?> = mutableStateOf(null)
+    val isBuildingGif = mutableStateOf(false)
 
-    /**
-     * @param sizePercentage: 0.05..1
-     */
-    fun startBitmapCaptureJob(
-        capturingViewBounds: Rect?,
-        window: Window,
-        view: View?,
-        sizePercentage: Float,
-        onRecordingComplete: () -> Unit,
-    ) {
-        if (SDK_INT >= Build.VERSION_CODES.O) {
-            runBitmapCaptureJob(
-                capturingViewBounds = capturingViewBounds,
-                window = window,
-                view = view,
-                sizePercentage = sizePercentage,
-                onRecordingComplete = onRecordingComplete
-            )
-        } else {
-            runBitmapCaptureJob(
-                capturingViewBounds = capturingViewBounds,
-                view = view,
-                sizePercentage = sizePercentage,
-                onRecordingComplete = onRecordingComplete
-            )
-        }
-    }
+   fun runBitmapCaptureJob(
+       capturingViewBounds: Rect?,
+       window: Window,
+       view: View?,
+       sizePercentage: Float,
+       onRecordingComplete: () -> Unit,
+   ) {
+       Log.d(TAG, "runBitmapCaptureJob: called")
+       val bitmapCaptureJob = Job()
+       val capturedBitmaps: MutableList<Bitmap> = mutableListOf()
+       captureBitmaps.execute(
+           capturingViewBounds = capturingViewBounds,
+           window = window,
+           view = view,
+           sizePercentage = sizePercentage,
+           onRecordingComplete = onRecordingComplete,
+           addBitmap = {
+               if (bitmapCaptureJobState.value != Running) {
+                   Log.d(TAG, "runBitmapCaptureJob: CANCELING")
+                   bitmapCaptureJob.cancel()
+               } else {
+                   Log.d(TAG, "Add bitmap called")
+                   capturedBitmaps.add(it)
+               }
+           }
+       ).onEach { dataState ->
+           Log.d(TAG, "bitmapCaptureJobState: State: ${bitmapCaptureJobState.value }")
+           when(dataState) {
+               is DataState.Error -> {
+                   error.value = dataState.message
+               }
+//               is DataState.Loading -> {
+//                   loadingState.value = dataState.loadingState
+//               }
+           }
+       }.launchIn(ioScope + bitmapCaptureJob).invokeOnCompletion {
+           this.capturedBitmaps.value = capturedBitmaps
+           onRecordingComplete()
+       }
+   }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun runBitmapCaptureJob(
-        capturingViewBounds: Rect?,
-        window: Window,
-        view: View?,
-        sizePercentage: Float,
-        onRecordingComplete: () -> Unit,
+    fun buildGif(
+        context: Context,
+        onSaved: (Uri) -> Unit,
+        launchPermissionRequest: () -> Unit
     ) {
-        if (sizePercentage < 0.05 || sizePercentage > 1) throw Exception("Invalid resizing percentage.")
-        if (capturingViewBounds == null) throw Exception("Invalid capture area.")
-        if (view == null) throw Exception("Invalid view.")
-        CoroutineScope(Dispatchers.IO).launch {
-            var elapsedTime = 0
-            while (elapsedTime < 4000 && bitmapCaptureJobState.value == Running) {
-                delay(250)
-                elapsedTime += 250
-                captureBitmap(
-                    rect = capturingViewBounds,
-                    view = view,
-                    window = window,
-                    sizePercentage = sizePercentage,
-                ) {
-                    // Prevent Concurrent modification exception that can happen depending on timing
-                    if (bitmapCaptureJobState.value == Running) {
-                        val updated = capturedBitmaps.value.toMutableList()
-                        updated.add(it)
-                        capturedBitmaps.value = updated
-                    }
+        isBuildingGif.value = true
+        buildGif.execute(
+            context = context,
+            bitmaps = capturedBitmaps.value,
+            onSaved = onSaved,
+            launchPermissionRequest = launchPermissionRequest
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Error -> {
+                    error.value = dataState.message
                 }
+//                is DataState.Loading -> {
+//                    loadingState.value = dataState.loadingState
+//                }
             }
-            onRecordingComplete()
+        }.launchIn(ioScope).invokeOnCompletion {
+            resetGifJob()
         }
     }
 
-    private fun runBitmapCaptureJob(
-        capturingViewBounds: Rect?,
-        view: View?,
-        sizePercentage: Float,
-        onRecordingComplete: () -> Unit,
-    ) {
-        if (sizePercentage < 0.05 || sizePercentage > 1) throw Exception("Invalid resizing percentage.")
-        if (capturingViewBounds == null) throw Exception("Invalid capture area.")
-        if (view == null) throw Exception("Invalid view.")
-        CoroutineScope(Dispatchers.IO).launch {
-            var elapsedTime = 0
-            while (elapsedTime < 4000 && bitmapCaptureJobState.value == Running) {
-                delay(250)
-                elapsedTime += 250
-                captureBitmap(
-                    rect = capturingViewBounds,
-                    view = view,
-                    sizePercentage = sizePercentage,
-                ) {
-                    // Prevent Concurrent modification exception that can happen depending on timing
-                    if (bitmapCaptureJobState.value == Running) {
-                        val updated = capturedBitmaps.value.toMutableList()
-                        updated.add(it)
-                        capturedBitmaps.value = updated
-                    }
-                }
-            }
-            onRecordingComplete()
-        }
-    }
-
-    private fun resizeBitmap(bitmap: Bitmap, sizePercentage: Float): Bitmap {
-        val targetWidth = (bitmap.width * sizePercentage).toInt()
-        val targetHeight = (bitmap.height * sizePercentage).toInt()
-        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, false)
-    }
-
-    private fun captureBitmap(
-        rect: Rect?,
-        view: View,
-        sizePercentage: Float,
-        bitmapCallback: (Bitmap)->Unit
-    ) {
-        if (rect == null) return
-        val bitmap = resizeBitmap(
-            bitmap = Bitmap.createBitmap(
-                rect.width.roundToInt(),
-                rect.height.roundToInt(),
-                Bitmap.Config.ARGB_8888
-            ),
-            sizePercentage = sizePercentage
-        ).applyCanvas {
-            translate(-rect.left, -rect.top)
-            view.draw(this)
-        }
-        bitmapCallback.invoke(bitmap)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun captureBitmap(
-        rect: Rect?,
-        window: Window,
-        view: View,
-        sizePercentage: Float,
-        bitmapCallback: (Bitmap)->Unit
-    ) {
-        if (rect == null) return
-        val bitmap = Bitmap.createBitmap(
-            view.width, view.height,
-            Bitmap.Config.ARGB_8888
-        )
-
-        val locationOfViewInWindow = IntArray(2)
-        view.getLocationInWindow(locationOfViewInWindow)
-        val xCoordinate = locationOfViewInWindow[0]
-        val yCoordinate = locationOfViewInWindow[1]
-        val scope = android.graphics.Rect(
-            xCoordinate,
-            yCoordinate,
-            xCoordinate + view.width,
-            yCoordinate + view.height
-        )
-        // Take screenshot
-        PixelCopy.request(
-            window,
-            scope,
-            bitmap,
-            { p0 ->
-                if (p0 == PixelCopy.SUCCESS) {
-                    // crop the screenshot
-                    bitmapCallback.invoke(
-                        resizeBitmap(
-                            bitmap = Bitmap.createBitmap(
-                                bitmap,
-                                rect.left.toInt(),
-                                rect.top.toInt(),
-                                rect.width.roundToInt(),
-                                rect.height.roundToInt()
-                            ),
-                            sizePercentage = sizePercentage
-                        )
-                    )
-                }
-            },
-            Handler(Looper.getMainLooper()) )
+    private fun resetGifJob() {
+        isBuildingGif.value = false
+        capturedBitmaps.value = listOf()
     }
 }
+
+
+
+
+
+
+
+
+
+
