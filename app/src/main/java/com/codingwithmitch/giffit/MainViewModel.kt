@@ -1,24 +1,19 @@
 package com.codingwithmitch.giffit
 
-import android.app.Activity
+import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import android.os.Build
-import android.os.Build.VERSION.SDK_INT
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
-import android.view.PixelCopy
 import android.view.View
 import android.view.Window
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.core.graphics.applyCanvas
+import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.canhub.cropper.CropImageView
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Idle
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
 import com.codingwithmitch.giffit.domain.Constants.TAG
@@ -27,25 +22,81 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.interactors.BuildGif
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps
+import com.codingwithmitch.giffit.interactors.GetAssetSize
+import com.codingwithmitch.giffit.interactors.GetCroppedUriAndSize
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlin.math.roundToInt
 
 class MainViewModel : ViewModel() {
 
     private val ioScope = CoroutineScope(IO)
     private val captureBitmaps = CaptureBitmaps()
     private val buildGif = BuildGif()
+    private val getAssetSize = GetAssetSize()
+    private val getCroppedUriAndSize = GetCroppedUriAndSize()
 
     val bitmapCaptureJobState: MutableState<BitmapCaptureJobState> = mutableStateOf(Idle)
     val capturedBitmaps: MutableState<List<Bitmap>> = mutableStateOf(listOf())
     val loadingState: MutableState<LoadingState> = mutableStateOf(IDLE)
     val error: MutableState<String?> = mutableStateOf(null)
     val isBuildingGif = mutableStateOf(false)
+    val backgroundAsset: MutableState<Uri?> = mutableStateOf(null)
+    val uncroppedImageSize: MutableState<Int> = mutableStateOf(0)
+    val croppedImageSize: MutableState<Int> = mutableStateOf(0)
+    val capturingViewBounds = mutableStateOf<Rect?>(null)
+    val assetData = mutableStateOf(
+        AssetData(
+            id = R.drawable.deal_with_it_sunglasses_default,
+            initialOffset = Offset(0f, 0f),
+            initialSize = Size(200f, 200f)
+        )
+    )
+
+    fun getCroppedUriAndSize(
+        result: CropImageView.CropResult
+    ) {
+        getCroppedUriAndSize.execute(
+            result = result,
+            uncroppedImageSize = uncroppedImageSize.value
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Data -> {
+                    croppedImageSize.value = dataState.data?.size ?: 0
+                    Log.d(TAG, "croppedImageSize: ${croppedImageSize.value}")
+                    backgroundAsset.value = dataState.data?.uri
+                }
+                is DataState.Error -> {
+                    error.value = dataState.message
+                }
+            }
+        }.launchIn(ioScope)
+    }
+
+    fun getUncroppedBackgroundAssetSize(
+        contentResolver: ContentResolver,
+        uncroppedBackgroundAssetUri: Uri?,
+        onComplete: () -> Unit,
+    ) {
+        getAssetSize.execute(
+            contentResolver = contentResolver,
+            uri = uncroppedBackgroundAssetUri,
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Data -> {
+                    uncroppedImageSize.value = dataState.data ?: 0
+                }
+                is DataState.Error -> {
+                    error.value = dataState.message
+                }
+            }
+        }.launchIn(ioScope).invokeOnCompletion {
+            if (it == null) {
+                onComplete()
+            }
+        }
+    }
 
    fun runBitmapCaptureJob(
        capturingViewBounds: Rect?,

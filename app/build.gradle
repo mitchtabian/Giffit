@@ -65,6 +65,12 @@ dependencies {
 
     implementation 'com.github.CanHub:Android-Image-Cropper:4.3.0'
 
+    dependencies {
+        // debugImplementation because LeakCanary should only run in debug builds.
+        debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.9.1'
+    }
+
+
     testImplementation 'junit:junit:4.13.2'
 
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'

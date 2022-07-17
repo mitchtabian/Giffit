@@ -6,19 +6,16 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import android.util.Log
 import androidx.annotation.RequiresApi
 import com.codingwithmitch.giffit.AnimatedGIFWriter
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.FileNameBuilder
-import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.ByteArrayOutputStream
-import java.io.IOException
 
 class BuildGif {
 
@@ -37,8 +34,7 @@ class BuildGif {
                 launchPermissionRequest = launchPermissionRequest
             )
         } catch (e: Exception) {
-            Log.d(TAG, "Exception: ${e}")
-            emit(Error("Something went wrong while building the gif."))
+            emit(Error(e.message ?: BUILD_GIF_ERROR))
         }
         emit(Loading(IDLE))
     }
@@ -90,22 +86,17 @@ class BuildGif {
         bytes: ByteArray,
         onSaved: (Uri) -> Unit
     ) {
-        try {
-            // Add content values so media is discoverable by android and added to common directories.
-            val contentValues = ContentValues()
-            val fileName = FileNameBuilder.buildFileName()
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.gif")
-            contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
-                contentResolver.openOutputStream(uri)?.let { os ->
-                    os.write(bytes)
-                    os.flush()
-                    os.close()
-                    onSaved(uri)
-                }
+        // Add content values so media is discoverable by android and added to common directories.
+        val contentValues = ContentValues()
+        val fileName = FileNameBuilder.buildFileName()
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.gif")
+        contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
+            contentResolver.openOutputStream(uri)?.let { os ->
+                os.write(bytes)
+                os.flush()
+                os.close()
+                onSaved(uri)
             }
-
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
@@ -114,24 +105,24 @@ class BuildGif {
         bytes: ByteArray,
         onSaved: (Uri) -> Unit
     ) {
-        try {
-            val externalUri: Uri =
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            // Add content values so media is discoverable by android and added to common directories.
-            val contentValues = ContentValues()
-            val fileName = FileNameBuilder.buildFileNameAPI26()
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "${fileName}.gif")
-            contentResolver.insert(externalUri, contentValues)?.let { fileUri ->
-                contentResolver.openOutputStream(fileUri)?.let { os ->
-                    os.write(bytes)
-                    os.flush()
-                    os.close()
-                    onSaved(fileUri)
-                }
+        val externalUri: Uri =
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        // Add content values so media is discoverable by android and added to common directories.
+        val contentValues = ContentValues()
+        val fileName = FileNameBuilder.buildFileNameAPI26()
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "${fileName}.gif")
+        contentResolver.insert(externalUri, contentValues)?.let { fileUri ->
+            contentResolver.openOutputStream(fileUri)?.let { os ->
+                os.write(bytes)
+                os.flush()
+                os.close()
+                onSaved(fileUri)
             }
-        } catch (e: IOException) {
-            e.printStackTrace()
         }
+    }
+
+    companion object {
+        const val BUILD_GIF_ERROR = "An error occurred while building the gif."
     }
 }
 

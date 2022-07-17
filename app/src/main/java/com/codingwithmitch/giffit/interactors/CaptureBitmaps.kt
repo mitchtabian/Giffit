@@ -4,21 +4,17 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Rect
 import androidx.core.graphics.applyCanvas
-import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.flow
 import kotlin.math.roundToInt
 
@@ -46,8 +42,7 @@ class CaptureBitmaps {
                 addBitmap(it)
             }
         } catch (e: Exception) {
-            Log.d(TAG, "Exception: ${e}")
-            emit(DataState.Error("Something went wrong while recording the gif."))
+            emit(DataState.Error(e.message ?: CAPTURE_BITMAP_ERROR))
         }
         emit(Loading(IDLE))
     }
@@ -162,5 +157,9 @@ class CaptureBitmaps {
                 }
             },
             Handler(Looper.getMainLooper()) )
+    }
+
+    companion object {
+        const val CAPTURE_BITMAP_ERROR = "An error occurred while capturing the bitmaps."
     }
 }
