@@ -10,6 +10,7 @@ import android.view.Window
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Rect
 import androidx.core.graphics.applyCanvas
+import com.codingwithmitch.giffit.BitmapUtils.resizeBitmap
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -81,12 +82,6 @@ class CaptureBitmaps {
 
         }
         onRecordingComplete()
-    }
-
-    private fun resizeBitmap(bitmap: Bitmap, sizePercentage: Float): Bitmap {
-        val targetWidth = (bitmap.width * sizePercentage).toInt()
-        val targetHeight = (bitmap.height * sizePercentage).toInt()
-        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, false)
     }
 
     private fun captureBitmap(

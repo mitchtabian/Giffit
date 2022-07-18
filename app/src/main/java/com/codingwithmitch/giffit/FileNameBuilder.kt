@@ -13,7 +13,7 @@ object FileNameBuilder {
      * Build a string formatted like: YYYY_MM_DD_SS in the default time zone on device.
      */
     fun buildFileName(): String {
-        val dateFormat = SimpleDateFormat("yyyy_MM_dd_ss")
+        val dateFormat = SimpleDateFormat("yyyy_MM_dd_ss.SSS")
         dateFormat.timeZone = TimeZone.getDefault()
         return dateFormat.format(Date(System.currentTimeMillis()))
     }
@@ -27,7 +27,8 @@ object FileNameBuilder {
         return "${zonedDateTime.year}_" +
                 "${formatMonth(zonedDateTime.month.value)}_" +
                 "${formatDay(zonedDateTime.dayOfMonth)}_" +
-                "${zonedDateTime.second}"
+                "${zonedDateTime.second}_" +
+                "${zonedDateTime.nano}"
     }
 
     private fun formatDay(day: Int): String {

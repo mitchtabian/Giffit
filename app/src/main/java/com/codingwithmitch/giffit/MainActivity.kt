@@ -1,6 +1,7 @@
 package com.codingwithmitch.giffit
 
 import android.Manifest
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
@@ -46,25 +47,24 @@ class MainActivity : ComponentActivity() {
 
     private val cropAssetLauncher: ActivityResultLauncher<CropImageContractOptions> = this@MainActivity.registerForActivityResult(
         CropImageContract()
-    ) {
-        viewModel.getCroppedUriAndSize(it)
+    ) { result ->
+        if (result.isSuccessful) {
+            viewModel.backgroundAsset.value = result.uriContent
+        } else {
+            Toast.makeText(this@MainActivity, "Something went wrong cropping the image.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private val backgroundAssetPickerLauncher: ActivityResultLauncher<String> = this@MainActivity.registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) {
-        viewModel.getUncroppedBackgroundAssetSize(
-            contentResolver = contentResolver,
-            uncroppedBackgroundAssetUri = it,
-        ) {
-            cropAssetLauncher.launch(
-                options(
-                    uri = it,
-                ) {
-                    setGuidelines(CropImageView.Guidelines.ON)
-                }
-            )
-        }
+        cropAssetLauncher.launch(
+            options(
+                uri = it,
+            ) {
+                setGuidelines(CropImageView.Guidelines.ON)
+            }
+        )
     }
 
     private val viewModel = MainViewModel()
@@ -101,96 +101,108 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        var gifUri: Uri? by remember { mutableStateOf(null) }
-                        var adjustedBytes by remember { mutableStateOf(0) }
-                        var sizePct by remember { mutableStateOf(100) }
-                        val view = LocalView.current
-                        if (gifUri != null || viewModel.isBuildingGif.value) {
-                            Log.d(TAG, "Render: isBuildingGif: ${viewModel.isBuildingGif}")
-                            DisplayGif(
-                                gifUri = gifUri,
-                                imageLoader = imageLoader,
-                                isBuildingGif = viewModel.isBuildingGif.value,
-                                discardGif = {
-                                    gifUri?.let {
-                                        discardGif(it)
-                                        gifUri = null
-                                    }
-                                }
-                            ) {
-                                gifUri = null
-                                Toast.makeText(this@MainActivity, "Saved", Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            if (viewModel.backgroundAsset.value != null) {
-                                RecordButton(
-                                    isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
-                                    updateBitmapCaptureJobState = { state ->
-                                        Log.d(TAG, "Update job state: ${state}")
-                                        viewModel.bitmapCaptureJobState.value = state
+                    if (viewModel.gifResizeProgress.value > 0) {
+                        ResizingGifProgressBar(viewModel.gifResizeProgress.value)
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            val view = LocalView.current
+                            if (viewModel.gifUri.value != null || viewModel.isBuildingGif.value) {
+                                Log.d(TAG, "Render: isBuildingGif: ${viewModel.isBuildingGif}")
+                                DisplayGif(
+                                    gifUri = viewModel.gifUri.value,
+                                    imageLoader = imageLoader,
+                                    isBuildingGif = viewModel.isBuildingGif.value,
+                                    discardGif = {
+                                        viewModel.gifUri.value?.let {
+                                            discardGif(it)
+                                            viewModel.gifUri.value= null
+                                        }
                                     },
-                                    startBitmapCaptureJob = {
-                                        viewModel.runBitmapCaptureJob(
-                                            capturingViewBounds = viewModel.capturingViewBounds.value,
-                                            window = window,
-                                            view = view,
-                                            sizePercentage = sizePct.toFloat() / 100,
-                                            onRecordingComplete = {
-                                                viewModel.buildGif(
-                                                    context = this@MainActivity,
-                                                    onSaved = {
-                                                        gifUri = it
-                                                    },
-                                                    launchPermissionRequest = {
-                                                        externalStoragePermissionRequest.launch(
-                                                            arrayOf(
-                                                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                                                Manifest.permission.READ_EXTERNAL_STORAGE,
-                                                            )
-                                                        )
-                                                    }
-                                                )
-                                            }
+                                    onSavedGif = {
+                                        viewModel.gifUri.value = null
+                                        Toast.makeText(this@MainActivity, "Saved", Toast.LENGTH_SHORT).show()
+                                    },
+                                    currentGifSize = viewModel.gifSize.value,
+                                    adjustedBytes = viewModel.adjustedBytes.value,
+                                    updateAdjustedBytes = {
+                                        viewModel.adjustedBytes.value = it
+                                    },
+                                    sizePercentage = viewModel.sizePercentage.value,
+                                    updateSizePercentage = {
+                                        viewModel.sizePercentage.value = it
+                                    },
+                                    resizeGif = {
+                                        viewModel.resizeGif(
+                                            context = this@MainActivity,
+                                            contentResolver = contentResolver
                                         )
-                                    },
-                                )
-                                RenderBackground(
-                                    backgroundAsset = viewModel.backgroundAsset.value,
-                                    assetData = viewModel.assetData.value,
-                                    updateCapturingViewBounds = {
-                                        viewModel.capturingViewBounds.value = it
                                     }
                                 )
                             } else {
-                                Box(
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Button(
-                                        modifier = Modifier
-                                            .align(Alignment.Center),
-                                        onClick = {
-                                            backgroundAssetPickerLauncher.launch("image/*")
+                                if (viewModel.backgroundAsset.value != null) {
+                                    RecordButton(
+                                        isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
+                                        updateBitmapCaptureJobState = { state ->
+                                            Log.d(TAG, "Update job state: ${state}")
+                                            viewModel.bitmapCaptureJobState.value = state
+                                        },
+                                        startBitmapCaptureJob = {
+                                            viewModel.runBitmapCaptureJob(
+                                                capturingViewBounds = viewModel.capturingViewBounds.value,
+                                                window = window,
+                                                view = view,
+                                                sizePercentage = 1f, // TODO("REmove this.")
+                                                onRecordingComplete = {
+                                                    viewModel.buildGif(
+                                                        context = this@MainActivity,
+                                                        onSaved = {
+                                                            viewModel.gifUri.value = it
+                                                            viewModel.getGifSize(
+                                                                contentResolver = contentResolver,
+                                                                uri = it
+                                                            )
+                                                        },
+                                                        launchPermissionRequest = {
+                                                            externalStoragePermissionRequest.launch(
+                                                                arrayOf(
+                                                                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                                                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                                                                )
+                                                            )
+                                                        }
+                                                    )
+                                                }
+                                            )
+                                        },
+                                    )
+                                    RenderBackground(
+                                        backgroundAsset = viewModel.backgroundAsset.value,
+                                        assetData = viewModel.assetData.value,
+                                        updateCapturingViewBounds = {
+                                            viewModel.capturingViewBounds.value = it
                                         }
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize()
                                     ) {
-                                        Text("Choose background image")
+                                        Button(
+                                            modifier = Modifier
+                                                .align(Alignment.Center),
+                                            onClick = {
+                                                backgroundAssetPickerLauncher.launch("image/*")
+                                            }
+                                        ) {
+                                            Text("Choose background image")
+                                        }
                                     }
                                 }
-                            }
-                            Footer(
-                                backgroundAsset = viewModel.backgroundAsset.value,
-                                isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
-                                croppedImageSize = viewModel.croppedImageSize.value,
-                                adjustedBytes = adjustedBytes,
-                                updateAdjustedBytes = {
-                                    adjustedBytes = it
-                                },
-                                sizePercentage = sizePct,
-                                updateSizePercentage = {
-                                    sizePct = it
+                                Footer(
+                                    backgroundAsset = viewModel.backgroundAsset.value,
+                                    isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
+                                ) {
+                                    backgroundAssetPickerLauncher.launch("image/*")
                                 }
-                            ) {
-                                backgroundAssetPickerLauncher.launch("image/*")
                             }
                         }
                     }

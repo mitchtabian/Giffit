@@ -6,7 +6,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +29,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
@@ -87,11 +93,6 @@ fun RecordButton(
 fun Footer(
     backgroundAsset: Uri?,
     isRecording: Boolean,
-    croppedImageSize: Int,
-    adjustedBytes: Int,
-    updateAdjustedBytes: (Int) -> Unit,
-    sizePercentage: Int,
-    updateSizePercentage: (Int) -> Unit,
     launchImagePicker: () -> Unit,
 ) {
     if (backgroundAsset != null && !isRecording) {
@@ -100,41 +101,6 @@ fun Footer(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            if (croppedImageSize > 0) {
-                LaunchedEffect(key1 = croppedImageSize) {
-                    updateAdjustedBytes(croppedImageSize)
-                }
-                Text(
-                    modifier = Modifier.align(Alignment.End),
-                    style = MaterialTheme.typography.h6,
-                    text = "Approximate gif size"
-                )
-                Text(
-                    modifier = Modifier.align(Alignment.End),
-                    style = MaterialTheme.typography.body1,
-                    text = "${adjustedBytes / 1024} KB" // convert to bytes -> KB
-                )
-                Text(text = "$sizePercentage %")
-                var sliderPosition by remember { mutableStateOf(100f) }
-                Slider(
-                    value = sliderPosition,
-                    valueRange = 5f..100f,
-                    onValueChange = {
-                        sliderPosition = it
-                        val newSizePercentage = sliderPosition.toInt()
-                        updateSizePercentage(newSizePercentage)
-                        updateAdjustedBytes(croppedImageSize * newSizePercentage / 100)
-                    },
-                )
-            } else {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(25.dp)
-                        .align(Alignment.End),
-                    color = Color.Blue,
-                    strokeWidth = 2.dp
-                )
-            }
             Button(
                 modifier = Modifier
                     .align(Alignment.End)
@@ -184,19 +150,59 @@ fun DisplayGif(
     isBuildingGif: Boolean,
     discardGif: () -> Unit,
     onSavedGif: () -> Unit,
+    currentGifSize: Int,
+    adjustedBytes: Int,
+    updateAdjustedBytes: (Int) -> Unit,
+    sizePercentage: Int,
+    updateSizePercentage: (Int) -> Unit,
+    resizeGif: () -> Unit,
 ) {
     val configuration = LocalConfiguration.current
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
     ) {
         if (gifUri != null) {
             Column(
                 modifier = Modifier
                     .wrapContentHeight()
-                    .align(Alignment.Center)
+                    .align(Alignment.TopStart)
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            discardGif()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = Color.Red
+                        )
+                    ) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Discard",
+                            modifier = Modifier.size(ButtonDefaults.IconSize)
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Button(
+                        onClick = {
+                            onSavedGif()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = Color.Green
+                        ),
+                    ) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = "Save",
+                            modifier = Modifier.size(ButtonDefaults.IconSize)
+                        )
+                    }
+                }
                 val image: Painter = rememberAsyncImagePainter(model = gifUri, imageLoader = imageLoader)
                 Image(
                     modifier = Modifier
@@ -207,27 +213,14 @@ fun DisplayGif(
                     painter = image,
                     contentDescription = ""
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            onSavedGif()
-                        }
-                    ) {
-                        Text("Keep")
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Button(
-                        onClick = {
-                            discardGif()
-                        }
-                    ) {
-                        Text("Discard")
-                    }
-                }
+                GifFooter(
+                    adjustedBytes = adjustedBytes,
+                    updateAdjustedBytes = updateAdjustedBytes,
+                    sizePercentage = sizePercentage,
+                    updateSizePercentage = updateSizePercentage,
+                    gifSize = currentGifSize,
+                    resizeGif = resizeGif
+                )
             }
         }
         if (isBuildingGif) {
@@ -240,6 +233,98 @@ fun DisplayGif(
                 strokeWidth = 4.dp
             )
         }
+    }
+}
+
+@Composable
+fun GifFooter(
+    adjustedBytes: Int,
+    updateAdjustedBytes: (Int) -> Unit,
+    sizePercentage: Int,
+    updateSizePercentage: (Int) -> Unit,
+    gifSize: Int,
+    resizeGif: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+    ) {
+        Text(
+            modifier = Modifier.align(Alignment.End),
+            style = MaterialTheme.typography.h6,
+            text = "Approximate gif size"
+        )
+        Text(
+            modifier = Modifier.align(Alignment.End),
+            style = MaterialTheme.typography.body1,
+            text = "${adjustedBytes / 1024} KB" // convert to bytes -> KB
+        )
+        Text(
+            text = "$sizePercentage %",
+            style = MaterialTheme.typography.body1,
+        )
+        var sliderPosition by remember { mutableStateOf(100f) }
+        Slider(
+            value = sliderPosition,
+            valueRange = 5f..100f,
+            onValueChange = {
+                sliderPosition = it
+                val newSizePercentage = sliderPosition.toInt()
+                updateSizePercentage(newSizePercentage)
+                updateAdjustedBytes(gifSize * newSizePercentage / 100)
+            },
+        )
+        Button(
+            modifier = Modifier.align(Alignment.End),
+            onClick = {
+                resizeGif()
+            }
+        ) {
+            Text(
+                text = "Resize",
+                style = MaterialTheme.typography.body1,
+            )
+        }
+    }
+}
+
+/**
+ * @param progress: value between 0..100 representing the progress of the resize job.
+ */
+@Composable
+fun ResizingGifProgressBar(
+    progress: Float,
+){
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        Column(
+            modifier = Modifier
+                .wrapContentSize()
+                .align(Alignment.Center)
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                modifier = Modifier.align(Alignment.Start).padding(vertical = 12.dp),
+                text = "Resizing your gif...",
+                style = MaterialTheme.typography.h5,
+                color = Color.White
+            )
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                ,
+                progress = progress,
+                backgroundColor = Color.White,
+                color = MaterialTheme.colors.primary
+            )
+        }
+
     }
 }
 

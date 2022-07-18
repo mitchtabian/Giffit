@@ -6,10 +6,12 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.codingwithmitch.giffit.AnimatedGIFWriter
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.FileNameBuilder
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -23,7 +25,7 @@ class BuildGif {
         context: Context,
         bitmaps: List<Bitmap>,
         onSaved: (Uri) -> Unit,
-        launchPermissionRequest: () -> Unit
+        launchPermissionRequest: () -> Unit,
     ): Flow<DataState<Nothing>> =  flow {
         emit(Loading(LOADING))
         try {
@@ -31,7 +33,7 @@ class BuildGif {
                 context = context,
                 bitmaps = bitmaps,
                 onSaved = onSaved,
-                launchPermissionRequest = launchPermissionRequest
+                launchPermissionRequest = launchPermissionRequest,
             )
         } catch (e: Exception) {
             emit(Error(e.message ?: BUILD_GIF_ERROR))
@@ -43,7 +45,7 @@ class BuildGif {
         context: Context,
         bitmaps: List<Bitmap>,
         onSaved: (Uri) -> Unit,
-        launchPermissionRequest: () -> Unit
+        launchPermissionRequest: () -> Unit,
     ) {
         val writer = AnimatedGIFWriter(true)
         val bos = ByteArrayOutputStream()
@@ -54,9 +56,9 @@ class BuildGif {
         writer.finishWrite(bos)
         val byteArray = bos.toByteArray()
         context.saveGif(
-            byteArray,
+            bytes = byteArray,
             onSaved = onSaved,
-            launchPermissionRequest = launchPermissionRequest
+            launchPermissionRequest = launchPermissionRequest,
         )
     }
 
