@@ -21,10 +21,7 @@ import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import com.codingwithmitch.giffit.interactors.BuildGif
-import com.codingwithmitch.giffit.interactors.CaptureBitmaps
-import com.codingwithmitch.giffit.interactors.GetAssetSize
-import com.codingwithmitch.giffit.interactors.GetCroppedUriAndSize
+import com.codingwithmitch.giffit.interactors.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.launchIn
@@ -36,14 +33,20 @@ class MainViewModel : ViewModel() {
     private val captureBitmaps = CaptureBitmaps()
     private val buildGif = BuildGif()
     private val getAssetSize = GetAssetSize()
+    private val resizeGif = ResizeGif(
+        buildGif = buildGif,
+        getAssetSize = getAssetSize,
+        ioScope = ioScope
+    )
 
     val bitmapCaptureJobState: MutableState<BitmapCaptureJobState> = mutableStateOf(Idle)
     val capturedBitmaps: MutableState<List<Bitmap>> = mutableStateOf(listOf())
-    val loadingState: MutableState<LoadingState> = mutableStateOf(IDLE)
+    val loadingState: MutableState<LoadingState> = mutableStateOf(LoadingState.Idle)
     val error: MutableState<String?> = mutableStateOf(null)
     val isBuildingGif = mutableStateOf(false)
     val backgroundAsset: MutableState<Uri?> = mutableStateOf(null)
     val capturingViewBounds = mutableStateOf<Rect?>(null)
+    val resizedGifUri: MutableState<Uri?> = mutableStateOf(null)
     val gifUri: MutableState<Uri?> = mutableStateOf(null)
     val gifSize: MutableState<Int> = mutableStateOf(0)
     val adjustedBytes: MutableState<Int> = mutableStateOf(0)
@@ -56,88 +59,45 @@ class MainViewModel : ViewModel() {
         )
     )
     val gifResizeProgress: MutableState<Float> = mutableStateOf(0f)
-    private val percentageLossIncrementSize = 0.05f
-
-    private fun resize(
-        context: Context,
-        contentResolver: ContentResolver,
-        previousUri: Uri?,
-        targetSize: Float,
-        percentageLoss: Float,
-    ) {
-        previousUri?.let {
-            try {
-                context.discardGif(it)
-            } catch (e: Exception) {
-                Log.e(TAG, "discardPrev: ${e.message}")
-            }
-        }
-        val resizedBitmaps: MutableList<Bitmap> = mutableListOf()
-        for (bitmap in capturedBitmaps.value) {
-            val resizedBitmap = resizeBitmap(
-                bitmap = bitmap,
-                sizePercentage = 1 - percentageLoss
-            )
-            resizedBitmaps.add(resizedBitmap)
-        }
-        buildGif.execute(
-            context = context,
-            bitmaps = resizedBitmaps,
-            onSaved = {
-                getAssetSize.execute(
-                    contentResolver = contentResolver,
-                    uri = it,
-                ).onEach { dataState ->
-                    when(dataState) {
-                        is DataState.Data -> {
-                            val newSize = dataState.data ?: 0
-                            val originalSize = gifSize.value.toFloat()
-                            val progress = (originalSize - newSize.toFloat()) / (originalSize - targetSize)
-                            gifResizeProgress.value = progress
-                            if (newSize > targetSize) {
-                                resize(
-                                    context = context,
-                                    contentResolver = contentResolver,
-                                    previousUri = it,
-                                    targetSize = targetSize,
-                                    percentageLoss = percentageLoss + percentageLossIncrementSize,
-                                )
-                            } else {
-                                // Done resizing
-                                gifUri.value = it
-                                isBuildingGif.value = false
-                                gifResizeProgress.value = 0f
-                            }
-                        }
-                        is DataState.Error -> {
-                            error.value = dataState.message
-                        }
-                    }
-                }.launchIn(ioScope)
-            },
-            launchPermissionRequest = {
-
-            }
-        ).onEach { dataState ->
-
-        }.launchIn(ioScope)
-    }
 
     fun resizeGif(
         context: Context,
         contentResolver: ContentResolver,
+        launchPermissionRequest: () -> Unit
     ) {
+//        resizeGif.test().onEach { value ->
+//            Log.d(TAG, "resizeGif: ${value}")
+//        }.launchIn(ioScope)
         gifUri.value?.let {
             isBuildingGif.value = true
             val targetSize = gifSize.value * sizePercentage.value.toFloat() / 100
-            gifResizeProgress.value = percentageLossIncrementSize
-            resize(
+            resizeGif.execute(
                 context = context,
                 contentResolver = contentResolver,
-                previousUri = null,
+                capturedBitmaps = capturedBitmaps.value,
+                originalGifSize = gifSize.value.toFloat(),
                 targetSize = targetSize,
-                percentageLoss = percentageLossIncrementSize,
-            )
+                launchPermissionRequest = launchPermissionRequest,
+            ).onEach { dataState ->
+                when(dataState) {
+                    is DataState.Loading -> {
+                        when(dataState.loadingState) {
+                            is Active -> {
+                                gifResizeProgress.value = dataState.loadingState.progress ?: 0f
+                            }
+                            LoadingState.Idle -> {
+                                gifResizeProgress.value = 0f
+                            }
+                        }
+                    }
+                    is DataState.Data -> {
+                        resizedGifUri.value = dataState.data
+                    }
+                    is DataState.Error -> {
+                        error.value = dataState.message
+                    }
+                }
+            }.launchIn(ioScope)
         }
     }
 
@@ -204,17 +164,23 @@ class MainViewModel : ViewModel() {
 
     fun buildGif(
         context: Context,
-        onSaved: (Uri) -> Unit,
+        contentResolver: ContentResolver,
         launchPermissionRequest: () -> Unit
     ) {
         isBuildingGif.value = true
         buildGif.execute(
             context = context,
             bitmaps = capturedBitmaps.value,
-            onSaved = onSaved,
             launchPermissionRequest = launchPermissionRequest
         ).onEach { dataState ->
             when(dataState) {
+                is DataState.Data -> {
+                    gifUri.value = dataState.data
+                    getGifSize(
+                        contentResolver = contentResolver,
+                        uri = dataState.data
+                    )
+                }
                 is DataState.Error -> {
                     error.value = dataState.message
                 }
@@ -227,52 +193,28 @@ class MainViewModel : ViewModel() {
         }
     }
 
-//    private fun resetGifJob() {
-//        isBuildingGif.value = false
-//        capturedBitmaps.value = listOf()
-//    }
-
-//    fun getCroppedUriAndSize(
-//        result: CropImageView.CropResult
+//    fun buildGif(
+//        context: Context,
+//        onSaved: (Uri) -> Unit,
+//        launchPermissionRequest: () -> Unit
 //    ) {
-//        getCroppedUriAndSize.execute(
-//            result = result,
-//            uncroppedImageSize = uncroppedImageSize.value
+//        isBuildingGif.value = true
+//        buildGif.execute(
+//            context = context,
+//            bitmaps = capturedBitmaps.value,
+//            onSaved = onSaved,
+//            launchPermissionRequest = launchPermissionRequest
 //        ).onEach { dataState ->
 //            when(dataState) {
-//                is DataState.Data -> {
-//                    croppedImageSize.value = dataState.data?.size ?: 0
-//                    Log.d(TAG, "croppedImageSize: ${croppedImageSize.value}")
-//                    backgroundAsset.value = dataState.data?.uri
-//                }
 //                is DataState.Error -> {
 //                    error.value = dataState.message
 //                }
-//            }
-//        }.launchIn(ioScope)
-//    }
-//
-//    fun getUncroppedBackgroundAssetSize(
-//        contentResolver: ContentResolver,
-//        uncroppedBackgroundAssetUri: Uri?,
-//        onComplete: () -> Unit,
-//    ) {
-//        getAssetSize.execute(
-//            contentResolver = contentResolver,
-//            uri = uncroppedBackgroundAssetUri,
-//        ).onEach { dataState ->
-//            when(dataState) {
-//                is DataState.Data -> {
-//                    uncroppedImageSize.value = dataState.data ?: 0
-//                }
-//                is DataState.Error -> {
-//                    error.value = dataState.message
-//                }
+////                is DataState.Loading -> {
+////                    loadingState.value = dataState.loadingState
+////                }
 //            }
 //        }.launchIn(ioScope).invokeOnCompletion {
-//            if (it == null) {
-//                onComplete()
-//            }
+//            isBuildingGif.value = false
 //        }
 //    }
 }

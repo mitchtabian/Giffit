@@ -35,6 +35,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var imageLoader: ImageLoader
 
+    private fun launchPermissionRequest() {
+        externalStoragePermissionRequest.launch(
+            arrayOf(
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+            )
+        )
+    }
+
     private val externalStoragePermissionRequest = this@MainActivity.registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -106,10 +115,12 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Column(modifier = Modifier.fillMaxSize()) {
                             val view = LocalView.current
-                            if (viewModel.gifUri.value != null || viewModel.isBuildingGif.value) {
+                            if (viewModel.gifUri.value != null || viewModel.isBuildingGif.value ||
+                                    viewModel.resizedGifUri.value != null
+                            ) {
                                 Log.d(TAG, "Render: isBuildingGif: ${viewModel.isBuildingGif}")
                                 DisplayGif(
-                                    gifUri = viewModel.gifUri.value,
+                                    gifUri = viewModel.resizedGifUri.value ?: viewModel.gifUri.value,
                                     imageLoader = imageLoader,
                                     isBuildingGif = viewModel.isBuildingGif.value,
                                     discardGif = {
@@ -118,7 +129,23 @@ class MainActivity : ComponentActivity() {
                                             viewModel.gifUri.value= null
                                         }
                                     },
+                                    isResizedGif = viewModel.resizedGifUri.value != null,
+                                    resetGifToOriginal = {
+                                        viewModel.resizedGifUri.value?.let {
+                                            discardGif(it)
+                                            viewModel.resizedGifUri.value = null
+                                            viewModel.adjustedBytes.value = viewModel.gifSize.value
+                                            viewModel.sizePercentage.value = 100
+                                        }
+                                    },
                                     onSavedGif = {
+                                        if (viewModel.resizedGifUri.value != null) {
+                                            // Discard original since we resized
+                                            viewModel.gifUri.value?.let {
+                                                discardGif(it)
+                                            }
+                                        }
+                                        viewModel.resizedGifUri.value = null
                                         viewModel.gifUri.value = null
                                         Toast.makeText(this@MainActivity, "Saved", Toast.LENGTH_SHORT).show()
                                     },
@@ -134,7 +161,10 @@ class MainActivity : ComponentActivity() {
                                     resizeGif = {
                                         viewModel.resizeGif(
                                             context = this@MainActivity,
-                                            contentResolver = contentResolver
+                                            contentResolver = contentResolver,
+                                            launchPermissionRequest = {
+                                                launchPermissionRequest()
+                                            }
                                         )
                                     }
                                 )
@@ -155,20 +185,16 @@ class MainActivity : ComponentActivity() {
                                                 onRecordingComplete = {
                                                     viewModel.buildGif(
                                                         context = this@MainActivity,
-                                                        onSaved = {
-                                                            viewModel.gifUri.value = it
-                                                            viewModel.getGifSize(
-                                                                contentResolver = contentResolver,
-                                                                uri = it
-                                                            )
-                                                        },
+                                                        contentResolver = contentResolver,
+//                                                        onSaved = {
+//                                                            viewModel.gifUri.value = it
+//                                                            viewModel.getGifSize(
+//                                                                contentResolver = contentResolver,
+//                                                                uri = it
+//                                                            )
+//                                                        },
                                                         launchPermissionRequest = {
-                                                            externalStoragePermissionRequest.launch(
-                                                                arrayOf(
-                                                                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                                                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                                                                )
-                                                            )
+                                                            launchPermissionRequest()
                                                         }
                                                     )
                                                 }

@@ -13,9 +13,17 @@ sealed class DataState<T> {
     data class Loading<T>(
         val loadingState: LoadingState
     ): DataState<T>() {
-        enum class LoadingState {
-            LOADING,
-            IDLE
+
+        sealed class LoadingState {
+
+            /**
+             * Loading state with optional progress.
+             */
+            data class Active(
+                val progress: Float? = 0f,
+            ): LoadingState()
+
+            object Idle: LoadingState()
         }
     }
 }

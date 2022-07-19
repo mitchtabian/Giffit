@@ -149,6 +149,8 @@ fun DisplayGif(
     imageLoader: ImageLoader,
     isBuildingGif: Boolean,
     discardGif: () -> Unit,
+    resetGifToOriginal: () -> Unit,
+    isResizedGif: Boolean,
     onSavedGif: () -> Unit,
     currentGifSize: Int,
     adjustedBytes: Int,
@@ -219,6 +221,8 @@ fun DisplayGif(
                     sizePercentage = sizePercentage,
                     updateSizePercentage = updateSizePercentage,
                     gifSize = currentGifSize,
+                    isResizedGif = isResizedGif,
+                    resetResizing = resetGifToOriginal,
                     resizeGif = resizeGif
                 )
             }
@@ -243,7 +247,9 @@ fun GifFooter(
     sizePercentage: Int,
     updateSizePercentage: (Int) -> Unit,
     gifSize: Int,
+    isResizedGif: Boolean,
     resizeGif: () -> Unit,
+    resetResizing: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -260,31 +266,41 @@ fun GifFooter(
             style = MaterialTheme.typography.body1,
             text = "${adjustedBytes / 1024} KB" // convert to bytes -> KB
         )
-        Text(
-            text = "$sizePercentage %",
-            style = MaterialTheme.typography.body1,
-        )
-        var sliderPosition by remember { mutableStateOf(100f) }
-        Slider(
-            value = sliderPosition,
-            valueRange = 5f..100f,
-            onValueChange = {
-                sliderPosition = it
-                val newSizePercentage = sliderPosition.toInt()
-                updateSizePercentage(newSizePercentage)
-                updateAdjustedBytes(gifSize * newSizePercentage / 100)
-            },
-        )
-        Button(
-            modifier = Modifier.align(Alignment.End),
-            onClick = {
-                resizeGif()
+        if (isResizedGif) {
+            Button(
+                modifier = Modifier.align(Alignment.End),
+                onClick = resetResizing
+            ) {
+                Text(
+                    text = "Reset resizing",
+                    style = MaterialTheme.typography.body1,
+                )
             }
-        ) {
+        } else {
             Text(
-                text = "Resize",
+                text = "$sizePercentage %",
                 style = MaterialTheme.typography.body1,
             )
+            var sliderPosition by remember { mutableStateOf(100f) }
+            Slider(
+                value = sliderPosition,
+                valueRange = 5f..100f,
+                onValueChange = {
+                    sliderPosition = it
+                    val newSizePercentage = sliderPosition.toInt()
+                    updateSizePercentage(newSizePercentage)
+                    updateAdjustedBytes(gifSize * newSizePercentage / 100)
+                },
+            )
+            Button(
+                modifier = Modifier.align(Alignment.End),
+                onClick = resizeGif
+            ) {
+                Text(
+                    text = "Resize",
+                    style = MaterialTheme.typography.body1,
+                )
+            }
         }
     }
 }
@@ -309,7 +325,7 @@ fun ResizingGifProgressBar(
         ) {
             Text(
                 modifier = Modifier.align(Alignment.Start).padding(vertical = 12.dp),
-                text = "Resizing your gif...",
+                text = "Resizing gif...",
                 style = MaterialTheme.typography.h5,
                 color = Color.White
             )

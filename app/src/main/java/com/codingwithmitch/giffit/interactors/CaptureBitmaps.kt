@@ -21,8 +21,6 @@ import kotlin.math.roundToInt
 
 class CaptureBitmaps {
 
-    class CaptureBitmapsCancelException: Exception()
-
     fun execute(
         capturingViewBounds: Rect?,
         window: Window,
@@ -31,7 +29,7 @@ class CaptureBitmaps {
         onRecordingComplete: () -> Unit,
         addBitmap: (Bitmap) -> Unit
     ): Flow<DataState<Nothing>> = flow {
-        emit(Loading(LOADING))
+        emit(Loading(Active()))
         try {
             runBitmapCaptureJob(
                 capturingViewBounds = capturingViewBounds,
@@ -45,7 +43,7 @@ class CaptureBitmaps {
         } catch (e: Exception) {
             emit(DataState.Error(e.message ?: CAPTURE_BITMAP_ERROR))
         }
-        emit(Loading(IDLE))
+        emit(Loading(Idle))
     }
 
     private suspend fun runBitmapCaptureJob(
