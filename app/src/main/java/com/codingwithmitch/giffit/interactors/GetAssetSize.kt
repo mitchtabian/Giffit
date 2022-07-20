@@ -32,10 +32,8 @@ class GetAssetSize {
                 throw Exception(GET_ASSET_SIZE_ERROR)
             }
         } catch (e: Exception) {
-            Log.d(Constants.TAG, "Exception: ${e}")
             emit(Error(e.message ?: GET_ASSET_SIZE_ERROR))
         }
-        // TODO("Loading is probably pointless here since crop will launch at same time")
         emit(Loading(Idle))
     }
 

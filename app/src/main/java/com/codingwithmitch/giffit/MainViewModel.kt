@@ -15,13 +15,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Idle
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
-import com.codingwithmitch.giffit.BitmapUtils.discardGif
-import com.codingwithmitch.giffit.BitmapUtils.resizeBitmap
 import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.interactors.*
+import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_SUCCESS
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.launchIn
@@ -31,7 +30,8 @@ class MainViewModel : ViewModel() {
 
     private val ioScope = CoroutineScope(IO)
     private val captureBitmaps = CaptureBitmaps()
-    private val buildGif = BuildGif()
+    private val saveGifToStorage = SaveGifToStorage()
+    private val buildGif = BuildGif(saveGifToStorage)
     private val getAssetSize = GetAssetSize()
     private val resizeGif = ResizeGif(
         buildGif = buildGif,
@@ -63,13 +63,10 @@ class MainViewModel : ViewModel() {
     fun resizeGif(
         context: Context,
         contentResolver: ContentResolver,
-        launchPermissionRequest: () -> Unit
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
     ) {
-//        resizeGif.test().onEach { value ->
-//            Log.d(TAG, "resizeGif: ${value}")
-//        }.launchIn(ioScope)
         gifUri.value?.let {
-            isBuildingGif.value = true
             val targetSize = gifSize.value * sizePercentage.value.toFloat() / 100
             resizeGif.execute(
                 context = context,
@@ -78,6 +75,7 @@ class MainViewModel : ViewModel() {
                 originalGifSize = gifSize.value.toFloat(),
                 targetSize = targetSize,
                 launchPermissionRequest = launchPermissionRequest,
+                checkFilePermissions = checkFilePermissions
             ).onEach { dataState ->
                 when(dataState) {
                     is DataState.Loading -> {
@@ -101,7 +99,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun getGifSize(
+    private fun getGifSize(
         contentResolver: ContentResolver,
         uri: Uri?,
     ) {
@@ -122,56 +120,79 @@ class MainViewModel : ViewModel() {
     }
 
    fun runBitmapCaptureJob(
+       contentResolver: ContentResolver,
        capturingViewBounds: Rect?,
        window: Window,
        view: View?,
-       sizePercentage: Float,
-       onRecordingComplete: () -> Unit,
+       launchPermissionRequest: () -> Unit,
+       checkFilePermissions: () -> Boolean,
    ) {
-       Log.d(TAG, "runBitmapCaptureJob: called")
+       bitmapCaptureJobState.value = Running
+       // We need a way to stop the job if a user presses "STOP". So create a Job for this.
        val bitmapCaptureJob = Job()
        val capturedBitmaps: MutableList<Bitmap> = mutableListOf()
        captureBitmaps.execute(
            capturingViewBounds = capturingViewBounds,
            window = window,
            view = view,
-           sizePercentage = sizePercentage,
-           onRecordingComplete = onRecordingComplete,
-           addBitmap = {
-               if (bitmapCaptureJobState.value != Running) {
-                   Log.d(TAG, "runBitmapCaptureJob: CANCELING")
-                   bitmapCaptureJob.cancel()
-               } else {
-                   Log.d(TAG, "Add bitmap called")
-                   capturedBitmaps.add(it)
-               }
-           }
        ).onEach { dataState ->
-           Log.d(TAG, "bitmapCaptureJobState: State: ${bitmapCaptureJobState.value }")
            when(dataState) {
+               is DataState.Data -> {
+                   // If the user hits the "STOP" button, complete the job by canceling.
+                   if (bitmapCaptureJobState.value != Running) {
+                       bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
+                   }
+                   dataState.data?.let { bitmap ->
+                       capturedBitmaps.add(bitmap)
+                   }
+               }
                is DataState.Error -> {
+                   // For this use-case, if an error occurs we need to stop the job.
+                   // Otherwise it will keep trying to capture bitmaps and failing over and over.
+                   bitmapCaptureJob.cancel(CaptureBitmaps.CAPTURE_BITMAP_ERROR)
+                   bitmapCaptureJobState.value = Idle
                    error.value = dataState.message
                }
+               // TODO("Show determinate progress bar representing how far I am to completion?")
 //               is DataState.Loading -> {
 //                   loadingState.value = dataState.loadingState
 //               }
            }
-       }.launchIn(ioScope + bitmapCaptureJob).invokeOnCompletion {
-           this.capturedBitmaps.value = capturedBitmaps
-           onRecordingComplete()
+       }.launchIn(ioScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
+           val onSuccess: () -> Unit = {
+               // If an error occurs, do not try to build the gif.
+               this.capturedBitmaps.value = capturedBitmaps
+               buildGif(
+                   contentResolver = contentResolver,
+                   launchPermissionRequest = launchPermissionRequest,
+                   checkFilePermissions = checkFilePermissions
+               )
+           }
+           when (throwable) {
+               null -> onSuccess()
+               else -> {
+                   if (throwable.message == CAPTURE_BITMAP_SUCCESS) {
+                       onSuccess()
+                   } else {
+                       Log.d(TAG, "BitmapCaptureJob: throwable: ${throwable.message}")
+                       // TODO("Tell the user to select a different image and try again?")
+                   }
+               }
+           }
        }
    }
 
-    fun buildGif(
-        context: Context,
+    private fun buildGif(
         contentResolver: ContentResolver,
-        launchPermissionRequest: () -> Unit
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
     ) {
         isBuildingGif.value = true
         buildGif.execute(
-            context = context,
+            contentResolver = contentResolver,
             bitmaps = capturedBitmaps.value,
-            launchPermissionRequest = launchPermissionRequest
+            launchPermissionRequest = launchPermissionRequest,
+            checkFilePermissions = checkFilePermissions
         ).onEach { dataState ->
             when(dataState) {
                 is DataState.Data -> {
@@ -184,39 +205,14 @@ class MainViewModel : ViewModel() {
                 is DataState.Error -> {
                     error.value = dataState.message
                 }
-//                is DataState.Loading -> {
-//                    loadingState.value = dataState.loadingState
-//                }
+                is DataState.Loading -> {
+                    loadingState.value = dataState.loadingState
+                }
             }
         }.launchIn(ioScope).invokeOnCompletion {
             isBuildingGif.value = false
         }
     }
-
-//    fun buildGif(
-//        context: Context,
-//        onSaved: (Uri) -> Unit,
-//        launchPermissionRequest: () -> Unit
-//    ) {
-//        isBuildingGif.value = true
-//        buildGif.execute(
-//            context = context,
-//            bitmaps = capturedBitmaps.value,
-//            onSaved = onSaved,
-//            launchPermissionRequest = launchPermissionRequest
-//        ).onEach { dataState ->
-//            when(dataState) {
-//                is DataState.Error -> {
-//                    error.value = dataState.message
-//                }
-////                is DataState.Loading -> {
-////                    loadingState.value = dataState.loadingState
-////                }
-//            }
-//        }.launchIn(ioScope).invokeOnCompletion {
-//            isBuildingGif.value = false
-//        }
-//    }
 }
 
 

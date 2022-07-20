@@ -124,6 +124,14 @@ class MainActivity : ComponentActivity() {
                                     imageLoader = imageLoader,
                                     isBuildingGif = viewModel.isBuildingGif.value,
                                     discardGif = {
+                                        // If the gif has been resized, discard it.
+                                        viewModel.resizedGifUri.value?.let {
+                                            discardGif(it)
+                                            viewModel.resizedGifUri.value = null
+                                            viewModel.adjustedBytes.value = viewModel.gifSize.value
+                                            viewModel.sizePercentage.value = 100
+                                        }
+                                        // Discard original gif.
                                         viewModel.gifUri.value?.let {
                                             discardGif(it)
                                             viewModel.gifUri.value= null
@@ -164,6 +172,9 @@ class MainActivity : ComponentActivity() {
                                             contentResolver = contentResolver,
                                             launchPermissionRequest = {
                                                 launchPermissionRequest()
+                                            },
+                                            checkFilePermissions = {
+                                                checkFilePermissions()
                                             }
                                         )
                                     }
@@ -178,25 +189,15 @@ class MainActivity : ComponentActivity() {
                                         },
                                         startBitmapCaptureJob = {
                                             viewModel.runBitmapCaptureJob(
+                                                contentResolver = contentResolver,
                                                 capturingViewBounds = viewModel.capturingViewBounds.value,
                                                 window = window,
                                                 view = view,
-                                                sizePercentage = 1f, // TODO("REmove this.")
-                                                onRecordingComplete = {
-                                                    viewModel.buildGif(
-                                                        context = this@MainActivity,
-                                                        contentResolver = contentResolver,
-//                                                        onSaved = {
-//                                                            viewModel.gifUri.value = it
-//                                                            viewModel.getGifSize(
-//                                                                contentResolver = contentResolver,
-//                                                                uri = it
-//                                                            )
-//                                                        },
-                                                        launchPermissionRequest = {
-                                                            launchPermissionRequest()
-                                                        }
-                                                    )
+                                                launchPermissionRequest = {
+                                                    launchPermissionRequest()
+                                                },
+                                                checkFilePermissions = {
+                                                    checkFilePermissions()
                                                 }
                                             )
                                         },

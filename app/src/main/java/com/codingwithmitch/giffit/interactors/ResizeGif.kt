@@ -10,10 +10,11 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 
+/**
+ * TODO("ktdoc")
+ */
 class ResizeGif(
     private val buildGif: BuildGif,
     private val getAssetSize: GetAssetSize,
@@ -26,36 +27,14 @@ class ResizeGif(
      */
     private val percentageLossIncrementSize = 0.05f
 
-
-    fun test(): Flow<String> = flow {
-        emitAll(
-            secondFlow().transform {
-                emit(it)
-            }
-        )
-    }
-
-    fun secondFlow(): Flow<String> = flow {
-        (0..5).forEach {
-            emitAll(
-                thirdFlow(it).transform { intValue ->
-                    emit(intValue.toString())
-                }
-            )
-        }
-    }
-
-    fun thirdFlow(input: Int): Flow<Int> = flow {
-        emit(input)
-    }
-
     fun execute(
         context: Context,
         contentResolver: ContentResolver,
         capturedBitmaps: List<Bitmap>,
         originalGifSize: Float,
         targetSize: Float,
-        launchPermissionRequest: () -> Unit
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
     ): Flow<DataState<Uri>> = flow {
         emit(Loading<Uri>(Active(percentageLossIncrementSize)))
         try {
@@ -69,6 +48,7 @@ class ResizeGif(
                    targetSize = targetSize,
                    percentageLoss = percentageLossIncrementSize,
                    launchPermissionRequest = launchPermissionRequest,
+                   checkFilePermissions = checkFilePermissions,
                )
            )
         } catch (e: Exception) {
@@ -106,9 +86,7 @@ class ResizeGif(
         targetSize: Float,
         percentageLoss: Float,
         launchPermissionRequest: () -> Unit,
-//        onProgressUpdate: suspend (Float) -> Unit,
-//        onError: suspend (String) -> Unit,
-//        onResizeComplete: (Uri) -> Unit,
+        checkFilePermissions: () -> Boolean,
     ): Flow<DataState<Uri>> = flow {
         previousUri?.let {
             try {
@@ -128,9 +106,10 @@ class ResizeGif(
 
         emitAll(
             buildGif.execute(
-                context = context,
+                contentResolver = contentResolver,
                 bitmaps = resizedBitmaps,
                 launchPermissionRequest = launchPermissionRequest,
+                checkFilePermissions = checkFilePermissions,
             ).transform { dataState ->
                 when(dataState) {
                     is Data -> {
@@ -157,6 +136,7 @@ class ResizeGif(
                                                     previousUri = dataState.data,
                                                     percentageLoss = percentageLoss + percentageLossIncrementSize,
                                                     launchPermissionRequest = launchPermissionRequest,
+                                                    checkFilePermissions = checkFilePermissions
                                                 )
                                             )
                                         } else {
