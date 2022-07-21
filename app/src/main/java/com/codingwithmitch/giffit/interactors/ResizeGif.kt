@@ -9,7 +9,6 @@ import com.codingwithmitch.giffit.BitmapUtils.discardGif
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 
 /**
@@ -18,7 +17,6 @@ import kotlinx.coroutines.flow.*
 class ResizeGif(
     private val buildGif: BuildGif,
     private val getAssetSize: GetAssetSize,
-    private val ioScope: CoroutineScope,
 ) {
 
     sealed class GifResizeResult {
@@ -106,7 +104,7 @@ class ResizeGif(
                                 uri = dataState.data,
                             ).transform { dataState2 ->
                                 when(dataState2) {
-                                    is Data -> { // TODO("Need error case")
+                                    is Data -> {
                                         val newSize = dataState2.data ?: 0
                                         val progress = (originalGifSize - newSize.toFloat()) / (originalGifSize - targetSize)
                                         emit(Loading<GifResizeResult>(Active(progress)))
