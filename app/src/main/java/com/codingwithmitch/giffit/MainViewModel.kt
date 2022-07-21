@@ -65,15 +65,21 @@ class MainViewModel : ViewModel() {
         contentResolver: ContentResolver,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
+        previousUri: Uri?,
+        percentageLoss: Float,
     ) {
         gifUri.value?.let {
             val targetSize = gifSize.value * sizePercentage.value.toFloat() / 100
+            // Need to be able to cancel the previous resize job.
+            val job = Job()
             resizeGif.execute(
                 context = context,
                 contentResolver = contentResolver,
                 capturedBitmaps = capturedBitmaps.value,
                 originalGifSize = gifSize.value.toFloat(),
                 targetSize = targetSize,
+                previousUri = previousUri,
+                percentageLoss = percentageLoss,
                 launchPermissionRequest = launchPermissionRequest,
                 checkFilePermissions = checkFilePermissions
             ).onEach { dataState ->
@@ -89,13 +95,30 @@ class MainViewModel : ViewModel() {
                         }
                     }
                     is DataState.Data -> {
-                        resizedGifUri.value = dataState.data
+                        when(dataState.data) {
+                            is ResizeGif.GifResizeResult.Finished -> {
+                                resizedGifUri.value = dataState.data.uri
+                            }
+                            is ResizeGif.GifResizeResult.Continue -> {
+                                // Cancel this job because we're moving to the next resize iteration.
+                                job.cancel()
+                                // Run it again with new percentage loss
+                                resizeGif(
+                                    context = context,
+                                    contentResolver = contentResolver,
+                                    previousUri = dataState.data.uri,
+                                    percentageLoss = dataState.data.percentageLoss,
+                                    launchPermissionRequest = launchPermissionRequest,
+                                    checkFilePermissions = checkFilePermissions
+                                )
+                            }
+                        }
                     }
                     is DataState.Error -> {
                         error.value = dataState.message
                     }
                 }
-            }.launchIn(ioScope)
+            }.launchIn(ioScope + job)
         }
     }
 

@@ -28,6 +28,7 @@ import com.canhub.cropper.options
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.BitmapUtils.discardGif
 import com.codingwithmitch.giffit.domain.Constants.TAG
+import com.codingwithmitch.giffit.interactors.ResizeGif
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -170,6 +171,8 @@ class MainActivity : ComponentActivity() {
                                         viewModel.resizeGif(
                                             context = this@MainActivity,
                                             contentResolver = contentResolver,
+                                            previousUri = null,
+                                            percentageLoss = ResizeGif.percentageLossIncrementSize,
                                             launchPermissionRequest = {
                                                 launchPermissionRequest()
                                             },

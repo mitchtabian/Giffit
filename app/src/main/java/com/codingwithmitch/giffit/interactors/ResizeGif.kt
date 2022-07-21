@@ -21,11 +21,17 @@ class ResizeGif(
     private val ioScope: CoroutineScope,
 ) {
 
-    /**
-     * How much the gif gets resized after each iteration.
-     * 0.05 = 5%.
-     */
-    private val percentageLossIncrementSize = 0.05f
+    sealed class GifResizeResult {
+
+        data class Finished(
+            val uri: Uri,
+        ): GifResizeResult()
+
+        data class Continue(
+            val uri: Uri,
+            val percentageLoss: Float,
+        ): GifResizeResult()
+    }
 
     fun execute(
         context: Context,
@@ -33,10 +39,12 @@ class ResizeGif(
         capturedBitmaps: List<Bitmap>,
         originalGifSize: Float,
         targetSize: Float,
+        previousUri: Uri?,
+        percentageLoss: Float,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
-    ): Flow<DataState<Uri>> = flow {
-        emit(Loading<Uri>(Active(percentageLossIncrementSize)))
+    ): Flow<DataState<out GifResizeResult>> = flow {
+        emit(Loading<GifResizeResult>(Active(percentageLoss)))
         try {
            emitAll(
                resize(
@@ -44,9 +52,9 @@ class ResizeGif(
                    contentResolver = contentResolver,
                    capturedBitmaps = capturedBitmaps,
                    originalGifSize = originalGifSize,
-                   previousUri = null,
+                   previousUri = previousUri,
                    targetSize = targetSize,
-                   percentageLoss = percentageLossIncrementSize,
+                   percentageLoss = percentageLoss,
                    launchPermissionRequest = launchPermissionRequest,
                    checkFilePermissions = checkFilePermissions,
                )
@@ -54,27 +62,6 @@ class ResizeGif(
         } catch (e: Exception) {
             emit(Error(e.message ?: RESIZE_GIF_ERROR))
         }
-
-
-//        resize(
-//            context = context,
-//            contentResolver = contentResolver,
-//            capturedBitmaps = capturedBitmaps,
-//            originalGifSize = originalGifSize,
-//            previousUri = null,
-//            targetSize = targetSize,
-//            percentageLoss = percentageLossIncrementSize,
-//            launchPermissionRequest = launchPermissionRequest,
-////            onProgressUpdate = { progress ->
-////                emit(Loading<Uri>(Active(progress)))
-////            },
-////            onError = {
-////                emit(Error<Uri>(it))
-////            },
-////            onResizeComplete = { uri ->
-////                emit(Data(uri))
-////            }
-//        )
     }
 
     private fun resize(
@@ -87,7 +74,7 @@ class ResizeGif(
         percentageLoss: Float,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
-    ): Flow<DataState<Uri>> = flow {
+    ): Flow<DataState<out GifResizeResult>> = flow {
         previousUri?.let {
             try {
                 context.discardGif(it)
@@ -122,31 +109,31 @@ class ResizeGif(
                                     is Data -> { // TODO("Need error case")
                                         val newSize = dataState2.data ?: 0
                                         val progress = (originalGifSize - newSize.toFloat()) / (originalGifSize - targetSize)
-                                        emit(Loading(Active(progress)))
+                                        emit(Loading<GifResizeResult>(Active(progress)))
 
-                                        // If we haven't reached the target size, recursively call until we do.
                                         if (newSize > targetSize) {
-                                            emitAll(
-                                                resize(
-                                                    context = context,
-                                                    contentResolver = contentResolver,
-                                                    capturedBitmaps = capturedBitmaps,
-                                                    originalGifSize = originalGifSize,
-                                                    targetSize = targetSize,
-                                                    previousUri = dataState.data,
-                                                    percentageLoss = percentageLoss + percentageLossIncrementSize,
-                                                    launchPermissionRequest = launchPermissionRequest,
-                                                    checkFilePermissions = checkFilePermissions
-                                                )
+                                            emit(
+                                                dataState.data?.let { uri ->
+                                                    Data(
+                                                        GifResizeResult.Continue(
+                                                            uri = uri,
+                                                            percentageLoss = percentageLoss + percentageLossIncrementSize
+                                                        )
+                                                    )
+                                                } ?: Error(RESIZE_GIF_ERROR)
                                             )
                                         } else {
                                             // Done resizing
-                                            emit(Data(dataState.data))
-                                            emit(Loading<Uri>(Idle))
+                                            emit(
+                                                dataState.data?.let { uri ->
+                                                    Data(GifResizeResult.Finished(uri))
+                                                } ?: Error(RESIZE_GIF_ERROR)
+                                            )
+                                            emit(Loading(Idle))
                                         }
                                     }
                                     is Error -> {
-                                        emit(Error<Uri>(dataState2.message))
+                                        emit(Error(dataState2.message))
                                     }
                                 }
                             }
@@ -155,64 +142,14 @@ class ResizeGif(
                 }
             }
         )
-
-
-//        buildGif.execute(
-//            context = context,
-//            bitmaps = resizedBitmaps,
-//            onSaved = {
-//                getAssetSize.execute(
-//                    contentResolver = contentResolver,
-//                    uri = it,
-//                ).onEach { dataState ->
-//                    when(dataState) {
-//                        is Data -> {
-//                            val newSize = dataState.data ?: 0
-//                            val progress = (originalGifSize - newSize.toFloat()) / (originalGifSize - targetSize)
-////                            emit(Loading(Active(progress)))
-//
-//                            // If we haven't reached the target size, recursively call until we do.
-//                            if (newSize > targetSize) {
-//                                resize(
-//                                    context = context,
-//                                    contentResolver = contentResolver,
-//                                    capturedBitmaps = capturedBitmaps,
-//                                    originalGifSize = originalGifSize,
-//                                    targetSize = targetSize,
-//                                    previousUri = it,
-//                                    percentageLoss = percentageLoss + percentageLossIncrementSize,
-//                                    launchPermissionRequest = launchPermissionRequest,
-////                                    onProgressUpdate = onProgressUpdate,
-////                                    onError = onError,
-////                                    onResizeComplete = onResizeComplete
-//                                )
-//                            } else {
-//                                // Done resizing
-////                                emit(Data(it))
-////                                emit(Loading<Uri>(Idle))
-////                                onResizeComplete(it)
-////                                onProgressUpdate(0f)
-//                            }
-//                        }
-//                        is Error -> {
-////                            emit(Error<Uri>(dataState.message))
-////                            onError(dataState.message)
-//                        }
-//                    }
-//                }.launchIn(ioScope)
-//            },
-//            launchPermissionRequest = launchPermissionRequest
-//        ).onEach { dataState ->
-//            when(dataState) {
-//                is Error -> {
-////                    emit(Error<Uri>(dataState.message))
-////                    onError(dataState.message)
-//                }
-//            }
-//        }.launchIn(ioScope)
     }
 
     companion object {
         const val RESIZE_GIF_ERROR = "An error occurred while resizing the gif."
+        /**
+         * How much the gif gets resized after each iteration.
+         * 0.05 = 5%.
+         */
+        const val percentageLossIncrementSize = 0.05f
     }
 }
