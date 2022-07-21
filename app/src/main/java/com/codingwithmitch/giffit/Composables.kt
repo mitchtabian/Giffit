@@ -1,6 +1,10 @@
 package com.codingwithmitch.giffit
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,9 +39,14 @@ import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import coil.ImageLoader
+import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
+import coil.compose.rememberImagePainter
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.codingwithmitch.giffit.BitmapCaptureJobState.*
 import com.codingwithmitch.giffit.domain.Constants.TAG
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -50,7 +59,7 @@ fun RecordButton(
     startBitmapCaptureJob: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(55.dp),
         horizontalArrangement = Arrangement.End
     ) {
         Button(
@@ -120,13 +129,23 @@ fun RenderBackground(
     backgroundAsset: Uri?,
     assetData: AssetData,
     updateCapturingViewBounds: (Rect) -> Unit,
+    imageLoader: ImageLoader,
+    context: Context,
+    getAssetBitmap: (Bitmap) -> Unit,
+    getBackgroundBitmap: (Bitmap) -> Unit,
+    updateOffset: (Offset) -> Unit
 ) {
     Box(
         modifier = Modifier
             .wrapContentSize()
     ) {
         val configuration = LocalConfiguration.current
-        val image: Painter = rememberAsyncImagePainter(model = backgroundAsset)
+//        val image: Painter = rememberAsyncImagePainter(model = backgroundAsset)
+        val request = ImageRequest.Builder(context)
+            .data(backgroundAsset)
+            .allowHardware(false)
+            .build()
+        val painter = rememberAsyncImagePainter(request)
         Image(
             modifier = Modifier
                 .fillMaxWidth()
@@ -136,10 +155,23 @@ fun RenderBackground(
                 }
             ,
             contentScale = ContentScale.Crop,
-            painter = image,
+            painter = painter,
             contentDescription = ""
         )
-        RenderAsset(assetData = assetData)
+        LaunchedEffect(key1 = painter) {
+            launch {
+                val result = (imageLoader.execute(request) as SuccessResult).drawable
+                val resultBitmap = (result as BitmapDrawable).bitmap
+                getBackgroundBitmap(resultBitmap)
+            }
+        }
+        RenderAsset(
+            assetData = assetData,
+            context = context,
+            imageLoader = imageLoader,
+            getAssetBitmap = getAssetBitmap,
+            updateOffset = updateOffset
+        )
     }
 }
 
@@ -324,7 +356,9 @@ fun ResizingGifProgressBar(
                 .padding(horizontal = 16.dp)
         ) {
             Text(
-                modifier = Modifier.align(Alignment.Start).padding(vertical = 12.dp),
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(vertical = 12.dp),
                 text = "Resizing gif...",
                 style = MaterialTheme.typography.h5,
                 color = Color.White
@@ -347,6 +381,10 @@ fun ResizingGifProgressBar(
 @Composable
 fun RenderAsset(
     assetData: AssetData,
+    imageLoader: ImageLoader,
+    context: Context,
+    getAssetBitmap: (Bitmap) -> Unit,
+    updateOffset: (Offset) -> Unit,
 ) {
     var offset by remember { mutableStateOf(assetData.initialOffset) }
     var zoom by remember { mutableStateOf(1f) }
@@ -356,7 +394,12 @@ fun RenderAsset(
     val xOffset = with(LocalDensity.current) { -offset.x.toDp() }
     val yOffset = with(LocalDensity.current) { -offset.y.toDp() }
 
-    val painter: Painter = rememberAsyncImagePainter(model = assetData.id)
+    val request = ImageRequest.Builder(context)
+        .data(assetData.id)
+        .allowHardware(false)
+        .build()
+    val painter = rememberAsyncImagePainter(request)
+
     Image(
         modifier = Modifier
             .size(width = size.width.dp, height = size.height.dp)
@@ -386,6 +429,11 @@ fun RenderAsset(
                         size = newSize
                         zoom = newScale
                         angle += gestureRotate
+                        val relativeOffset = Offset(
+                            x = newOffset.x,
+                            y = newOffset.y - 55.dp.toPx()
+                        )
+                        updateOffset(relativeOffset)
                     }
                 )
             }
@@ -398,7 +446,73 @@ fun RenderAsset(
         painter = painter,
         contentDescription = ""
     )
+
+    LaunchedEffect(key1 = painter) {
+        launch {
+            val result = (imageLoader.execute(request) as SuccessResult).drawable
+            val resultBitmap = (result as BitmapDrawable).bitmap
+            getAssetBitmap(resultBitmap)
+        }
+    }
 }
+
+//@Composable
+//fun RenderAsset(
+//    assetData: AssetData,
+//    updateOffset: (Offset) -> Unit,
+//) {
+//    var offset by remember { mutableStateOf(assetData.initialOffset) }
+//    var zoom by remember { mutableStateOf(1f) }
+//    var angle by remember { mutableStateOf(0f) }
+//    var size by remember { mutableStateOf(assetData.initialSize) }
+//
+//    val xOffset = with(LocalDensity.current) { -offset.x.toDp() }
+//    val yOffset = with(LocalDensity.current) { -offset.y.toDp() }
+//
+//    val painter: Painter = rememberAsyncImagePainter(model = assetData.id)
+//    Image(
+//        modifier = Modifier
+//            .size(width = size.width.dp, height = size.height.dp)
+//            .offset(
+//                x = xOffset,
+//                y = yOffset
+//            )
+//            .pointerInput(Unit) {
+//                detectTransformGesturesAndTouch(
+//                    onGesture = { centroid, pan, gestureZoom, gestureRotate ->
+//                        val oldScale = zoom
+//                        val newScale = zoom * gestureZoom
+//
+//                        // If we're only moving the shape we need to put bounds on how fast it can move.
+//                        // Otherwise as it gets smaller it will move faster. And as it gets bigger it will
+//                        // move slower.
+//                        val newSize = size * gestureZoom
+//                        // If zoom has not changed, limit movement speed.
+//                        val newOffset = if (newSize == size) {
+//                            offset - pan
+//                        } else { // We're zooming/rotating
+//                            // https://developer.android.com/reference/kotlin/androidx/compose/foundation/gestures/package-summary#(androidx.compose.ui.input.pointer.PointerInputScope).detectTransformGestures(kotlin.Boolean,kotlin.Function4)
+//                            (offset + centroid / oldScale).rotateBy(gestureRotate) -
+//                                    (centroid / newScale + pan / oldScale)
+//                        }
+//                        offset = newOffset
+//                        size = newSize
+//                        zoom = newScale
+//                        angle += gestureRotate
+//                        updateOffset(newOffset)
+//                    }
+//                )
+//            }
+//            .graphicsLayer {
+//                rotationZ = angle
+//                transformOrigin = TransformOrigin.Center
+//            }
+//            .clip(RectangleShape)
+//        ,
+//        painter = painter,
+//        contentDescription = ""
+//    )
+//}
 
 private suspend fun PointerInputScope.detectTransformGesturesAndTouch(
     panZoomLock: Boolean = false,

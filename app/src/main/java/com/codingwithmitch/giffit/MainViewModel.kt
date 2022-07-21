@@ -3,8 +3,16 @@ package com.codingwithmitch.giffit
 import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Matrix
 import android.net.Uri
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.util.TypedValue
+import android.view.PixelCopy
 import android.view.View
 import android.view.Window
 import androidx.compose.runtime.MutableState
@@ -12,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Idle
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
@@ -23,6 +32,7 @@ import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_SUCCESS
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
@@ -59,6 +69,9 @@ class MainViewModel : ViewModel() {
         )
     )
     val gifResizeProgress: MutableState<Float> = mutableStateOf(0f)
+    val assetOffset: MutableState<Offset> = mutableStateOf(Offset.Zero)
+    val assetBitmap: MutableState<Bitmap?> = mutableStateOf(null)
+    val backgroundBitmap: MutableState<Bitmap?> = mutableStateOf(null)
 
     fun resizeGif(
         context: Context,
@@ -117,6 +130,40 @@ class MainViewModel : ViewModel() {
                 }
             }
         }.launchIn(ioScope)
+    }
+
+    fun runBitmapCaptureJob(
+        context: Context,
+        contentResolver: ContentResolver,
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
+    ) {
+        CoroutineScope(IO).launch {
+            val offsetValues: MutableList<Offset> = mutableListOf()
+            var elapsedTime = 0
+            while (elapsedTime < 4000) {
+                delay(250)
+                elapsedTime += 250
+                offsetValues.add(assetOffset.value)
+            }
+            val bitmaps: MutableList<Bitmap> = mutableListOf()
+            offsetValues.forEach { offset ->
+                assetBitmap.value?.let { overlayBitmap ->
+                    backgroundBitmap.value?.let { backgroundBitmap ->
+                        val mutableCopy = backgroundBitmap.copy(backgroundBitmap.config, true)
+                        val canvas = Canvas(mutableCopy)
+                        canvas.drawBitmap(overlayBitmap, offset.x, offset.y,null)
+                        bitmaps.add(mutableCopy)
+                    }
+                }
+            }
+            buildGif(
+                contentResolver = contentResolver,
+                capturedBitmaps = bitmaps,
+                launchPermissionRequest = launchPermissionRequest,
+                checkFilePermissions = checkFilePermissions
+            )
+        }
     }
 
    fun runBitmapCaptureJob(
@@ -181,6 +228,39 @@ class MainViewModel : ViewModel() {
            }
        }
    }
+
+    private fun buildGif(
+        contentResolver: ContentResolver,
+        capturedBitmaps: List<Bitmap>,
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
+    ) {
+        isBuildingGif.value = true
+        buildGif.execute(
+            contentResolver = contentResolver,
+            bitmaps = capturedBitmaps,
+            launchPermissionRequest = launchPermissionRequest,
+            checkFilePermissions = checkFilePermissions
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Data -> {
+                    gifUri.value = dataState.data
+                    getGifSize(
+                        contentResolver = contentResolver,
+                        uri = dataState.data
+                    )
+                }
+                is DataState.Error -> {
+                    error.value = dataState.message
+                }
+                is DataState.Loading -> {
+                    loadingState.value = dataState.loadingState
+                }
+            }
+        }.launchIn(ioScope).invokeOnCompletion {
+            isBuildingGif.value = false
+        }
+    }
 
     private fun buildGif(
         contentResolver: ContentResolver,

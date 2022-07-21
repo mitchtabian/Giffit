@@ -1,6 +1,7 @@
 package com.codingwithmitch.giffit
 
 import android.Manifest
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -17,6 +18,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalView
 import coil.ImageLoader
 import coil.decode.GifDecoder
@@ -189,10 +191,8 @@ class MainActivity : ComponentActivity() {
                                         },
                                         startBitmapCaptureJob = {
                                             viewModel.runBitmapCaptureJob(
+                                                context = this@MainActivity,
                                                 contentResolver = contentResolver,
-                                                capturingViewBounds = viewModel.capturingViewBounds.value,
-                                                window = window,
-                                                view = view,
                                                 launchPermissionRequest = {
                                                     launchPermissionRequest()
                                                 },
@@ -201,14 +201,41 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             )
                                         },
+//                                        startBitmapCaptureJob = {
+//                                            viewModel.runBitmapCaptureJob(
+//                                                contentResolver = contentResolver,
+//                                                capturingViewBounds = viewModel.capturingViewBounds.value,
+//                                                window = window,
+//                                                view = view,
+//                                                launchPermissionRequest = {
+//                                                    launchPermissionRequest()
+//                                                },
+//                                                checkFilePermissions = {
+//                                                    checkFilePermissions()
+//                                                }
+//                                            )
+//                                        },
                                     )
                                     RenderBackground(
                                         backgroundAsset = viewModel.backgroundAsset.value,
                                         assetData = viewModel.assetData.value,
                                         updateCapturingViewBounds = {
                                             viewModel.capturingViewBounds.value = it
+                                        },
+                                        imageLoader = imageLoader,
+                                        context = this@MainActivity,
+                                        getAssetBitmap = { bitmap ->
+                                            viewModel.assetBitmap.value = bitmap
+                                        },
+                                        getBackgroundBitmap = { bitmap ->
+                                            viewModel.backgroundBitmap.value = bitmap
                                         }
-                                    )
+                                    ) { newOffset ->
+                                        viewModel.assetOffset.value = Offset(
+                                            x = viewModel.assetData.value.initialOffset.x + newOffset.x*-1,
+                                            y = viewModel.assetData.value.initialOffset.y + newOffset.y*-1
+                                        )
+                                    }
                                 } else {
                                     Box(
                                         modifier = Modifier.fillMaxSize()
