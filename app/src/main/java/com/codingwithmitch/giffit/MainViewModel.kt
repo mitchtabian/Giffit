@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Idle
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
+import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
@@ -23,24 +24,32 @@ import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_SUCCESS
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import java.io.File
 
-class MainViewModel : ViewModel() {
+class MainViewModel
+constructor(
+    cacheProvider: CacheProvider
+): ViewModel() {
 
     private val ioScope = CoroutineScope(IO)
+
     private val captureBitmaps = CaptureBitmaps()
-    private val saveGifToStorage = SaveGifToStorage()
-    private val buildGif = BuildGif(saveGifToStorage)
+    private val saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider)
+    private val saveGifToExternalStorage = SaveGifToExternalStorage()
+    private val buildGif = BuildGif(saveGifToInternalStorage)
     private val getAssetSize = GetAssetSize()
     private val resizeGif = ResizeGif(
         buildGif = buildGif,
         getAssetSize = getAssetSize,
-        ioScope = ioScope
     )
+    private val clearCachedFiles = ClearCachedFiles(cacheProvider)
 
     val bitmapCaptureJobState: MutableState<BitmapCaptureJobState> = mutableStateOf(Idle)
-    val capturedBitmaps: MutableState<List<Bitmap>> = mutableStateOf(listOf())
+    private val capturedBitmaps: MutableState<List<Bitmap>> = mutableStateOf(listOf())
     val loadingState: MutableState<LoadingState> = mutableStateOf(LoadingState.Idle)
     val error: MutableState<String?> = mutableStateOf(null)
     val isBuildingGif = mutableStateOf(false)
@@ -59,6 +68,63 @@ class MainViewModel : ViewModel() {
         )
     )
     val gifResizeProgress: MutableState<Float> = mutableStateOf(0f)
+    private val _toastEventRelay: MutableStateFlow<String?> = MutableStateFlow(null)
+    val toastEventRelay: Flow<String?> get() = _toastEventRelay
+
+    fun showToast(message: String) {
+        _toastEventRelay.tryEmit(message)
+    }
+
+    fun clearCachedFiles() {
+        clearCachedFiles.execute().onEach { dataState ->
+            // Don't update UI here at all. Should just succeed or fail silently?
+            when(dataState) {
+                is DataState.Data -> {
+
+                }
+                is DataState.Loading -> {
+
+                }
+                is DataState.Error -> {
+
+                }
+            }
+        }.launchIn(ioScope)
+    }
+
+    fun saveGif(
+        contentResolver: ContentResolver,
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
+        uri: Uri,
+        onCompleteCallback: () -> Unit,
+    ) {
+        saveGifToExternalStorage.execute(
+            contentResolver = contentResolver,
+            cachedUri = uri,
+            launchPermissionRequest = launchPermissionRequest,
+            checkFilePermissions = checkFilePermissions
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Data -> {
+                    showToast("Saved")
+                }
+                is DataState.Loading -> {
+                    loadingState.value = dataState.loadingState
+                }
+                is DataState.Error -> {
+                    error.value = dataState.message
+                }
+            }
+        }.launchIn(ioScope).invokeOnCompletion {
+            // Clear the cache
+            onCompleteCallback()
+
+            // Reset the URI's
+            resizedGifUri.value = null
+            gifUri.value = null
+        }
+    }
 
     fun resizeGif(
         context: Context,
@@ -80,8 +146,9 @@ class MainViewModel : ViewModel() {
                 targetSize = targetSize,
                 previousUri = previousUri,
                 percentageLoss = percentageLoss,
-                launchPermissionRequest = launchPermissionRequest,
-                checkFilePermissions = checkFilePermissions
+                discardCachedGif = {
+                    discardCachedGif(it)
+                }
             ).onEach { dataState ->
                 when(dataState) {
                     is DataState.Loading -> {
@@ -143,12 +210,11 @@ class MainViewModel : ViewModel() {
     }
 
    fun runBitmapCaptureJob(
+       context: Context,
        contentResolver: ContentResolver,
        capturingViewBounds: Rect?,
        window: Window,
        view: View?,
-       launchPermissionRequest: () -> Unit,
-       checkFilePermissions: () -> Boolean,
    ) {
        bitmapCaptureJobState.value = Running
        // We need a way to stop the job if a user presses "STOP". So create a Job for this.
@@ -186,9 +252,8 @@ class MainViewModel : ViewModel() {
                // If an error occurs, do not try to build the gif.
                this.capturedBitmaps.value = capturedBitmaps
                buildGif(
+                   context = context,
                    contentResolver = contentResolver,
-                   launchPermissionRequest = launchPermissionRequest,
-                   checkFilePermissions = checkFilePermissions
                )
            }
            when (throwable) {
@@ -197,7 +262,7 @@ class MainViewModel : ViewModel() {
                    if (throwable.message == CAPTURE_BITMAP_SUCCESS) {
                        onSuccess()
                    } else {
-                       Log.d(TAG, "BitmapCaptureJob: throwable: ${throwable.message}")
+                       Log.e(TAG, "runBitmapCaptureJob: ", throwable)
                        // TODO("Tell the user to select a different image and try again?")
                    }
                }
@@ -206,16 +271,14 @@ class MainViewModel : ViewModel() {
    }
 
     private fun buildGif(
+        context: Context,
         contentResolver: ContentResolver,
-        launchPermissionRequest: () -> Unit,
-        checkFilePermissions: () -> Boolean,
     ) {
         isBuildingGif.value = true
         buildGif.execute(
+            context = context,
             contentResolver = contentResolver,
             bitmaps = capturedBitmaps.value,
-            launchPermissionRequest = launchPermissionRequest,
-            checkFilePermissions = checkFilePermissions
         ).onEach { dataState ->
             when(dataState) {
                 is DataState.Data -> {
@@ -235,6 +298,35 @@ class MainViewModel : ViewModel() {
         }.launchIn(ioScope).invokeOnCompletion {
             isBuildingGif.value = false
         }
+    }
+
+    fun resetGifToOriginal() {
+        resizedGifUri.value?.let {
+            discardCachedGif(it)
+            resizedGifUri.value = null
+            adjustedBytes.value = gifSize.value
+            sizePercentage.value = 100
+        }
+    }
+
+    fun deleteGif() {
+        clearCachedFiles()
+        resizedGifUri.value = null
+        adjustedBytes.value = gifSize.value
+        sizePercentage.value = 100
+        gifUri.value= null
+    }
+
+    private fun discardCachedGif(uri: Uri) {
+        val file = File(uri.path)
+        val success = file.delete()
+        if (!success) {
+            throw Exception("$DISCARD_CACHED_GIF_ERROR $uri.")
+        }
+    }
+
+    companion object {
+        const val DISCARD_CACHED_GIF_ERROR = "Failed to delete cached gif at uri: "
     }
 }
 

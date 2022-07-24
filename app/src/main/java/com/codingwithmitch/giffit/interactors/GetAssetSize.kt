@@ -3,7 +3,7 @@ package com.codingwithmitch.giffit.interactors
 import android.content.ContentResolver
 import android.net.Uri
 import android.util.Log
-import com.codingwithmitch.giffit.domain.Constants
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -32,6 +32,7 @@ class GetAssetSize {
                 throw Exception(GET_ASSET_SIZE_ERROR)
             }
         } catch (e: Exception) {
+            Log.e(TAG, "GetAssetSize: ", e)
             emit(Error(e.message ?: GET_ASSET_SIZE_ERROR))
         }
         emit(Loading(Idle))

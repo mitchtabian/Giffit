@@ -1,8 +1,6 @@
 package com.codingwithmitch.giffit
 
 import android.Manifest
-import android.graphics.BitmapFactory
-import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
@@ -14,10 +12,10 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
@@ -26,15 +24,20 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
-import com.codingwithmitch.giffit.BitmapUtils.discardGif
+import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.Constants.TAG
+import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.interactors.ResizeGif
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 @OptIn(ExperimentalMaterialApi::class)
 class MainActivity : ComponentActivity() {
 
     private lateinit var imageLoader: ImageLoader
+
+    private lateinit var cacheProvider: CacheProvider
 
     private fun launchPermissionRequest() {
         externalStoragePermissionRequest.launch(
@@ -77,10 +80,23 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private val viewModel = MainViewModel()
+    private lateinit var viewModel: MainViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!::cacheProvider.isInitialized) {
+            cacheProvider = RealCacheProvider(this@MainActivity)
+        }
+        if (!::viewModel.isInitialized) {
+            viewModel = MainViewModel(cacheProvider)
+        }
+
+        viewModel.toastEventRelay.onEach { message ->
+            if (message != null) {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+            }
+        }.launchIn(lifecycleScope)
 
         if (!::imageLoader.isInitialized) {
             imageLoader = ImageLoader.Builder(this)
@@ -125,38 +141,29 @@ class MainActivity : ComponentActivity() {
                                     imageLoader = imageLoader,
                                     isBuildingGif = viewModel.isBuildingGif.value,
                                     discardGif = {
-                                        // If the gif has been resized, discard it.
-                                        viewModel.resizedGifUri.value?.let {
-                                            discardGif(it)
-                                            viewModel.resizedGifUri.value = null
-                                            viewModel.adjustedBytes.value = viewModel.gifSize.value
-                                            viewModel.sizePercentage.value = 100
-                                        }
-                                        // Discard original gif.
-                                        viewModel.gifUri.value?.let {
-                                            discardGif(it)
-                                            viewModel.gifUri.value= null
-                                        }
+                                        viewModel.deleteGif()
                                     },
                                     isResizedGif = viewModel.resizedGifUri.value != null,
-                                    resetGifToOriginal = {
-                                        viewModel.resizedGifUri.value?.let {
-                                            discardGif(it)
-                                            viewModel.resizedGifUri.value = null
-                                            viewModel.adjustedBytes.value = viewModel.gifSize.value
-                                            viewModel.sizePercentage.value = 100
-                                        }
-                                    },
+                                    resetGifToOriginal = viewModel::resetGifToOriginal,
                                     onSavedGif = {
-                                        if (viewModel.resizedGifUri.value != null) {
-                                            // Discard original since we resized
-                                            viewModel.gifUri.value?.let {
-                                                discardGif(it)
-                                            }
+                                        val uriToSave = viewModel.resizedGifUri.value ?: viewModel.gifUri.value
+                                        uriToSave?.let { uri ->
+                                            viewModel.saveGif(
+                                                contentResolver = contentResolver,
+                                                launchPermissionRequest = {
+                                                    launchPermissionRequest()
+                                                },
+                                                checkFilePermissions = {
+                                                    checkFilePermissions()
+                                                },
+                                                uri = uri,
+                                                onCompleteCallback = {
+                                                    // Whether or not this succeeds we want to clear the cache.
+                                                    // Because if something goes wrong we want to reset anyway.
+                                                    viewModel.clearCachedFiles()
+                                                }
+                                            )
                                         }
-                                        viewModel.resizedGifUri.value = null
-                                        viewModel.gifUri.value = null
-                                        Toast.makeText(this@MainActivity, "Saved", Toast.LENGTH_SHORT).show()
                                     },
                                     currentGifSize = viewModel.gifSize.value,
                                     adjustedBytes = viewModel.adjustedBytes.value,
@@ -187,21 +194,15 @@ class MainActivity : ComponentActivity() {
                                     RecordButton(
                                         isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
                                         updateBitmapCaptureJobState = { state ->
-                                            Log.d(TAG, "Update job state: ${state}")
                                             viewModel.bitmapCaptureJobState.value = state
                                         },
                                         startBitmapCaptureJob = {
                                             viewModel.runBitmapCaptureJob(
+                                                context = this@MainActivity,
                                                 contentResolver = contentResolver,
                                                 capturingViewBounds = viewModel.capturingViewBounds.value,
                                                 window = window,
                                                 view = view,
-                                                launchPermissionRequest = {
-                                                    launchPermissionRequest()
-                                                },
-                                                checkFilePermissions = {
-                                                    checkFilePermissions()
-                                                }
                                             )
                                         },
                                     )

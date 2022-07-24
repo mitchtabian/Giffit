@@ -4,8 +4,9 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import com.codingwithmitch.giffit.BitmapUtils
-import com.codingwithmitch.giffit.BitmapUtils.discardGif
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -39,10 +40,12 @@ class ResizeGif(
         targetSize: Float,
         previousUri: Uri?,
         percentageLoss: Float,
-        launchPermissionRequest: () -> Unit,
-        checkFilePermissions: () -> Boolean,
+        discardCachedGif: (Uri) -> Unit,
     ): Flow<DataState<out GifResizeResult>> = flow {
-        emit(Loading<GifResizeResult>(Active(percentageLoss)))
+        // If this is the first iteration of resizing, show loading right away.
+        if (percentageLoss <= percentageLossIncrementSize)  {
+            emit(Loading<GifResizeResult>(Active(percentageLoss)))
+        }
         try {
            emitAll(
                resize(
@@ -53,11 +56,11 @@ class ResizeGif(
                    previousUri = previousUri,
                    targetSize = targetSize,
                    percentageLoss = percentageLoss,
-                   launchPermissionRequest = launchPermissionRequest,
-                   checkFilePermissions = checkFilePermissions,
+                   discardCachedGif = discardCachedGif
                )
            )
         } catch (e: Exception) {
+            Log.e(TAG, "GetAssetSize: ", e)
             emit(Error(e.message ?: RESIZE_GIF_ERROR))
         }
     }
@@ -70,13 +73,14 @@ class ResizeGif(
         previousUri: Uri?,
         targetSize: Float,
         percentageLoss: Float,
-        launchPermissionRequest: () -> Unit,
-        checkFilePermissions: () -> Boolean,
+        discardCachedGif: (Uri) -> Unit,
     ): Flow<DataState<out GifResizeResult>> = flow {
+        // Delete the previously resized gif since we're moving to the next iteration.
         previousUri?.let {
             try {
-                context.discardGif(it)
+                discardCachedGif(it)
             } catch (e: Exception) {
+                Log.e(TAG, "GetAssetSize: ", e)
                 throw Exception(RESIZE_GIF_ERROR)
             }
         }
@@ -91,10 +95,9 @@ class ResizeGif(
 
         emitAll(
             buildGif.execute(
+                context = context,
                 contentResolver = contentResolver,
                 bitmaps = resizedBitmaps,
-                launchPermissionRequest = launchPermissionRequest,
-                checkFilePermissions = checkFilePermissions,
             ).transform { dataState ->
                 when(dataState) {
                     is Data -> {

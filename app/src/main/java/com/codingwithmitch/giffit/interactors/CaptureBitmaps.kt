@@ -4,12 +4,14 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Rect
 import androidx.core.graphics.applyCanvas
+import com.codingwithmitch.giffit.domain.Constants
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -41,6 +43,7 @@ class CaptureBitmaps {
                 )
             )
         } catch (e: Exception) {
+            Log.e(Constants.TAG, "GetAssetSize: ", e)
             emit(DataState.Error(e.message ?: CAPTURE_BITMAP_ERROR))
         }
         emit(Loading(Idle))
@@ -149,11 +152,13 @@ class CaptureBitmaps {
                             completionListener.finished(null)
                         }
                     } catch (e: Exception) {
+                        Log.e(Constants.TAG, "GetAssetSize: ", e)
                         completionListener.finished(e.message ?: CAPTURE_BITMAP_ERROR)
                     }
                 },
                 Handler(Looper.getMainLooper()) )
         } catch (e: Exception) {
+            Log.e(Constants.TAG, "GetAssetSize: ", e)
             completionListener.finished(e.message ?: CAPTURE_BITMAP_ERROR)
         }
         awaitClose { completionListener.finished(null) }
