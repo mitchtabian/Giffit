@@ -56,10 +56,11 @@ class CaptureBitmaps {
     ): Flow<DataState<Bitmap>> = flow {
         check(capturingViewBounds != null) { "Invalid view bounds." }
         check(view != null) { "Invalid view." }
-        var elapsedTime = 0
-        while (elapsedTime < 4000) {
-            delay(250)
-            elapsedTime += 250
+        var elapsedTime = 0f
+        while (elapsedTime < TOTAL_CAPTURE_TIME_MS) {
+            delay(CAPTURE_INTERVAL_MS.toLong())
+            elapsedTime += CAPTURE_INTERVAL_MS
+            emit(Loading(Active((elapsedTime + CAPTURE_INTERVAL_MS ) / TOTAL_CAPTURE_TIME_MS)))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 emitAll(
                     captureBitmap(
@@ -77,6 +78,7 @@ class CaptureBitmaps {
                 )
             }
         }
+        emit(Loading(Idle))
     }
 
     private fun captureBitmap(
@@ -169,6 +171,8 @@ class CaptureBitmaps {
     }
 
     companion object {
+        const val TOTAL_CAPTURE_TIME_MS = 4000f
+        const val CAPTURE_INTERVAL_MS = 250f
         const val CAPTURE_BITMAP_ERROR = "An error occurred while capturing the bitmaps."
         const val CAPTURE_BITMAP_SUCCESS = "Completed Successfully"
     }

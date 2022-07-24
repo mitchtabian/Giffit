@@ -4,7 +4,6 @@ import android.Manifest
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,9 +11,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
 import coil.decode.GifDecoder
@@ -24,10 +21,14 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
+import com.codingwithmitch.giffit.MainViewModel.MainLoadingState.*
+import com.codingwithmitch.giffit.MainViewModel.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
-import com.codingwithmitch.giffit.domain.Constants.TAG
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.interactors.ResizeGif
+import com.codingwithmitch.giffit.ui.*
+import com.codingwithmitch.giffit.ui.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -62,7 +63,17 @@ class MainActivity : ComponentActivity() {
         CropImageContract()
     ) { result ->
         if (result.isSuccessful) {
-            viewModel.backgroundAsset.value = result.uriContent
+            result.uriContent?.let {
+                when(val state = viewModel.state.value) {
+                    is DisplaySelectBackgroundAsset,
+                    is DisplayBackgroundAsset -> {
+                        viewModel.state.value = DisplayBackgroundAsset(
+                            backgroundAssetUri = it,
+                        )
+                    }
+                    else -> throw Exception("Invalid state: $state")
+                }
+            }
         } else {
             Toast.makeText(this@MainActivity, "Something went wrong cropping the image.", Toast.LENGTH_LONG).show()
         }
@@ -127,116 +138,84 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    if (viewModel.gifResizeProgress.value > 0) {
-                        ResizingGifProgressBar(viewModel.gifResizeProgress.value)
-                    } else {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            val view = LocalView.current
-                            if (viewModel.gifUri.value != null || viewModel.isBuildingGif.value ||
-                                    viewModel.resizedGifUri.value != null
-                            ) {
-                                Log.d(TAG, "Render: isBuildingGif: ${viewModel.isBuildingGif}")
-                                DisplayGif(
-                                    gifUri = viewModel.resizedGifUri.value ?: viewModel.gifUri.value,
-                                    imageLoader = imageLoader,
-                                    isBuildingGif = viewModel.isBuildingGif.value,
-                                    discardGif = {
-                                        viewModel.deleteGif()
-                                    },
-                                    isResizedGif = viewModel.resizedGifUri.value != null,
-                                    resetGifToOriginal = viewModel::resetGifToOriginal,
-                                    onSavedGif = {
-                                        val uriToSave = viewModel.resizedGifUri.value ?: viewModel.gifUri.value
-                                        uriToSave?.let { uri ->
-                                            viewModel.saveGif(
-                                                contentResolver = contentResolver,
-                                                launchPermissionRequest = {
-                                                    launchPermissionRequest()
-                                                },
-                                                checkFilePermissions = {
-                                                    checkFilePermissions()
-                                                },
-                                                uri = uri,
-                                                onCompleteCallback = {
-                                                    // Whether or not this succeeds we want to clear the cache.
-                                                    // Because if something goes wrong we want to reset anyway.
-                                                    viewModel.clearCachedFiles()
-                                                }
-                                            )
-                                        }
-                                    },
-                                    currentGifSize = viewModel.gifSize.value,
-                                    adjustedBytes = viewModel.adjustedBytes.value,
-                                    updateAdjustedBytes = {
-                                        viewModel.adjustedBytes.value = it
-                                    },
-                                    sizePercentage = viewModel.sizePercentage.value,
-                                    updateSizePercentage = {
-                                        viewModel.sizePercentage.value = it
-                                    },
-                                    resizeGif = {
-                                        viewModel.resizeGif(
-                                            context = this@MainActivity,
-                                            contentResolver = contentResolver,
-                                            previousUri = null,
-                                            percentageLoss = ResizeGif.percentageLossIncrementSize,
-                                            launchPermissionRequest = {
-                                                launchPermissionRequest()
-                                            },
-                                            checkFilePermissions = {
-                                                checkFilePermissions()
-                                            }
-                                        )
-                                    }
-                                )
-                            } else {
-                                if (viewModel.backgroundAsset.value != null) {
-                                    RecordButton(
-                                        isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
-                                        updateBitmapCaptureJobState = { state ->
-                                            viewModel.bitmapCaptureJobState.value = state
-                                        },
-                                        startBitmapCaptureJob = {
-                                            viewModel.runBitmapCaptureJob(
-                                                context = this@MainActivity,
-                                                contentResolver = contentResolver,
-                                                capturingViewBounds = viewModel.capturingViewBounds.value,
-                                                window = window,
-                                                view = view,
-                                            )
-                                        },
-                                    )
-                                    RenderBackground(
-                                        backgroundAsset = viewModel.backgroundAsset.value,
-                                        assetData = viewModel.assetData.value,
-                                        updateCapturingViewBounds = {
-                                            viewModel.capturingViewBounds.value = it
-                                        }
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Button(
-                                            modifier = Modifier
-                                                .align(Alignment.Center),
-                                            onClick = {
-                                                backgroundAssetPickerLauncher.launch("image/*")
-                                            }
-                                        ) {
-                                            Text("Choose background image")
-                                        }
-                                    }
-                                }
-                                Footer(
-                                    backgroundAsset = viewModel.backgroundAsset.value,
-                                    isRecording = viewModel.bitmapCaptureJobState.value == BitmapCaptureJobState.Running,
-                                ) {
-                                    backgroundAssetPickerLauncher.launch("image/*")
-                                }
+                    val state = viewModel.state.value
+                    val mainLoadingState = viewModel.mainLoadingState.value
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        when(state) {
+                            Initial -> {
+                                LoadingUI(mainLoadingState = Standard(Active()))
+                                viewModel.state.value = DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
                             }
+                            is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
+                                backgroundAssetPickerLauncher = backgroundAssetPickerLauncher
+                            )
+                            is DisplayGif -> Gif(
+                                imageLoader = imageLoader,
+                                gifUri = state.resizedGifUri ?: state.gifUri,
+                                discardGif = viewModel::deleteGif,
+                                isResizedGif = state.resizedGifUri != null,
+                                resetGifToOriginal = viewModel::resetGifToOriginal,
+                                onSavedGif = {
+                                    viewModel.saveGif(
+                                        contentResolver = contentResolver,
+                                        launchPermissionRequest = {
+                                            launchPermissionRequest()
+                                        },
+                                        checkFilePermissions = {
+                                            checkFilePermissions()
+                                        },
+                                    )
+                                },
+                                currentGifSize = state.originalGifSize,
+                                adjustedBytes = state.adjustedBytes,
+                                updateAdjustedBytes = viewModel::updateAdjustedBytes,
+                                sizePercentage = state.sizePercentage,
+                                updateSizePercentage = viewModel::updateSizePercentage,
+                                resizeGif = {
+                                    viewModel.resizeGif(
+                                        context = this@MainActivity,
+                                        contentResolver = contentResolver,
+                                        launchPermissionRequest = {
+                                            launchPermissionRequest()
+                                        },
+                                        checkFilePermissions = {
+                                            checkFilePermissions()
+                                        },
+                                        previousUri = null,
+                                        percentageLoss = ResizeGif.percentageLossIncrementSize
+                                    )
+                                }
+                            )
+                            is DisplayBackgroundAsset -> BackgroundAsset(
+                                bitmapCaptureLoadingState = when (mainLoadingState) {
+                                    is BitmapCapture -> mainLoadingState
+                                    else -> null
+                                },
+                                isRecording = state.bitmapCaptureJobState == BitmapCaptureJobState.Running,
+                                updateBitmapCaptureJobState = {
+                                    viewModel.state.value = state.copy(bitmapCaptureJobState = it)
+                                },
+                                startBitmapCaptureJob = { view ->
+                                    viewModel.runBitmapCaptureJob(
+                                        context = this@MainActivity,
+                                        contentResolver = contentResolver,
+                                        capturingViewBounds = state.capturingViewBounds,
+                                        window = window,
+                                        view = view,
+                                    )
+                                },
+                                backgroundAssetUri = state.backgroundAssetUri,
+                                assetData = state.assetData,
+                                updateCapturingViewBounds = { rect ->
+                                    viewModel.state.value = state.copy(capturingViewBounds = rect)
+                                }
+                            )
+                        }
+                        Footer(state) {
+                            backgroundAssetPickerLauncher.launch("image/*")
                         }
                     }
+                    LoadingUI(mainLoadingState = mainLoadingState)
                 }
             }
         }
