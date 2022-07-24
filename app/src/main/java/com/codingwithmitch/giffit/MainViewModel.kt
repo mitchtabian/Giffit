@@ -16,8 +16,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Idle
 import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
-import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
-import com.codingwithmitch.giffit.MainViewModel.MainLoadingState.*
+import com.codingwithmitch.giffit.MainLoadingState.*
 import com.codingwithmitch.giffit.MainViewModel.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.Constants.TAG
@@ -25,6 +24,7 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.interactors.*
+import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_SUCCESS
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorage.Companion.SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR
 import kotlinx.coroutines.*
@@ -53,40 +53,21 @@ constructor(
     )
     private val clearCachedFiles = ClearCachedFiles(cacheProvider)
 
-    sealed class MainLoadingState {
-
-        abstract val loadingState: LoadingState
-
-        /**
-         * Shows an indeterminate progress bar occupying the entire view.
-         */
-        data class Standard(
-            override val loadingState: LoadingState
-        ): MainLoadingState()
-
-        /**
-         * Shows a determinate progress bar occupying the entire view.
-         */
-        data class ResizingGif(
-            override val loadingState: LoadingState
-        ): MainLoadingState()
-
-        /**
-         * Shows a determine progress bar indicating how long until the gif recording
-         *  will auto-stop.
-         */
-        data class BitmapCapture(
-            override val loadingState: LoadingState
-        ): MainLoadingState()
-    }
-
     sealed class MainState {
 
-        object Initial: MainState()
+        abstract val capturedBitmaps: List<Bitmap>
+
+        object Initial: MainState() {
+            override val capturedBitmaps: List<Bitmap>
+                get() = listOf()
+        }
 
         data class DisplaySelectBackgroundAsset(
             val backgroundAssetPickerLauncher: ActivityResultLauncher<String>
-        ): MainState()
+        ): MainState() {
+            override val capturedBitmaps: List<Bitmap>
+                get() = listOf()
+        }
 
         data class DisplayGif(
             val gifUri: Uri?,
@@ -95,13 +76,14 @@ constructor(
             val adjustedBytes: Int,
             val sizePercentage: Int,
             val backgroundAssetUri: Uri,
+            override val capturedBitmaps: List<Bitmap> = listOf(),
         ): MainState()
 
         data class DisplayBackgroundAsset(
             val bitmapCaptureJobState: BitmapCaptureJobState = Idle,
-//            val loadingState: BitmapCapture = BitmapCapture(LoadingState.Idle),
             val backgroundAssetUri: Uri,
             val capturingViewBounds: Rect? = null,
+            override val capturedBitmaps: List<Bitmap> = listOf(),
         ): MainState() {
             val assetData: AssetData = AssetData(
                 id = R.drawable.deal_with_it_sunglasses_default,
@@ -114,7 +96,6 @@ constructor(
     val state: MutableState<MainState> = mutableStateOf(Initial)
 
     val mainLoadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(LoadingState.Idle))
-    private val capturedBitmaps: MutableState<List<Bitmap>> = mutableStateOf(listOf())
     val error: MutableState<String?> = mutableStateOf(null)
     private val _toastEventRelay: MutableStateFlow<String?> = MutableStateFlow(null)
     val toastEventRelay: Flow<String?> get() = _toastEventRelay
@@ -123,20 +104,9 @@ constructor(
         _toastEventRelay.tryEmit(message)
     }
 
-    fun clearCachedFiles() {
-        clearCachedFiles.execute().onEach { dataState ->
-            // Don't update UI here at all. Should just succeed or fail silently?
-            when(dataState) {
-                is DataState.Data -> {
-
-                }
-                is DataState.Loading -> {
-
-                }
-                is DataState.Error -> {
-
-                }
-            }
+    private fun clearCachedFiles() {
+        clearCachedFiles.execute().onEach { _ ->
+            // Don't update UI here at all. Should just succeed or fail silently.
         }.launchIn(ioScope)
     }
 
@@ -173,7 +143,7 @@ constructor(
 
             // reset state to displaying the selected background asset.
             state.value = DisplayBackgroundAsset(
-                backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri
+                backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
             )
         }
     }
@@ -194,7 +164,7 @@ constructor(
             resizeGif.execute(
                 context = context,
                 contentResolver = contentResolver,
-                capturedBitmaps = capturedBitmaps.value,
+                capturedBitmaps = it.capturedBitmaps,
                 originalGifSize = it.originalGifSize.toFloat(),
                 targetSize = targetSize,
                 previousUri = previousUri,
@@ -293,17 +263,6 @@ constructor(
            when(dataState) {
                is DataState.Data -> {
                    // If the user hits the "STOP" button, complete the job by canceling.
-//                   if ((state.value as DisplayBackgroundAsset).loadingState.loadingState != Running) {
-//                       bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
-//                   }
-
-//                   val mainLoadingState = mainLoadingState.value
-//                   if (mainLoadingState is BitmapCapture) {
-//                       val loadingState = mainLoadingState.loadingState
-//                       if (loadingState is Active && (loadingState.progress ?: 0f) > 0f) {
-//                           bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
-//                       }
-//                   }
                    if ((state.value as DisplayBackgroundAsset).bitmapCaptureJobState != Running) {
                        bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
                    }
@@ -326,8 +285,9 @@ constructor(
            }
        }.launchIn(ioScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
            val onSuccess: () -> Unit = {
-               // If an error occurs, do not try to build the gif.
-               this.capturedBitmaps.value = capturedBitmaps
+               state.value = (state.value as DisplayBackgroundAsset).copy(
+                   capturedBitmaps = capturedBitmaps
+               )
                buildGif(
                    context = context,
                    contentResolver = contentResolver,
@@ -338,9 +298,8 @@ constructor(
                else -> {
                    if (throwable.message == CAPTURE_BITMAP_SUCCESS) {
                        onSuccess()
-                   } else {
-                       Log.e(TAG, "runBitmapCaptureJob: ", throwable)
-                       // TODO("Tell the user to select a different image and try again?")
+                   } else { // If an error occurs, do not try to build the gif.
+                       error.value = throwable.message ?: CAPTURE_BITMAP_ERROR
                    }
                }
            }
@@ -356,18 +315,21 @@ constructor(
         buildGif.execute(
             context = context,
             contentResolver = contentResolver,
-            bitmaps = capturedBitmaps.value,
+            bitmaps = (state.value as DisplayBackgroundAsset).capturedBitmaps,
         ).onEach { dataState ->
             when(dataState) {
                 is DataState.Data -> {
-                    state.value = DisplayGif(
-                        gifUri = dataState.data,
-                        resizedGifUri = null,
-                        originalGifSize = 0,
-                        adjustedBytes = 0,
-                        sizePercentage = 100,
-                        backgroundAssetUri = (state.value as DisplayBackgroundAsset).backgroundAssetUri
-                    )
+                    (state.value as DisplayBackgroundAsset).let {
+                        state.value = DisplayGif(
+                            gifUri = dataState.data,
+                            resizedGifUri = null,
+                            originalGifSize = 0,
+                            adjustedBytes = 0,
+                            sizePercentage = 100,
+                            backgroundAssetUri = it.backgroundAssetUri,
+                            capturedBitmaps = it.capturedBitmaps
+                        )
+                    }
                     getGifSize(
                         contentResolver = contentResolver,
                         uri = dataState.data
@@ -403,7 +365,7 @@ constructor(
         clearCachedFiles()
         check(state.value is DisplayGif) { "deleteGif: Invalid state: ${state.value}" }
         state.value = DisplayBackgroundAsset(
-            backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri
+            backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
         )
     }
 

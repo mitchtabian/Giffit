@@ -21,7 +21,6 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
-import com.codingwithmitch.giffit.MainViewModel.MainLoadingState.*
 import com.codingwithmitch.giffit.MainViewModel.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -143,7 +142,7 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.fillMaxSize()) {
                         when(state) {
                             Initial -> {
-                                LoadingUI(mainLoadingState = Standard(Active()))
+                                LoadingUI(mainLoadingState = MainLoadingState.Standard(Active()))
                                 viewModel.state.value = DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
@@ -188,7 +187,7 @@ class MainActivity : ComponentActivity() {
                             )
                             is DisplayBackgroundAsset -> BackgroundAsset(
                                 bitmapCaptureLoadingState = when (mainLoadingState) {
-                                    is BitmapCapture -> mainLoadingState
+                                    is MainLoadingState.BitmapCapture -> mainLoadingState
                                     else -> null
                                 },
                                 isRecording = state.bitmapCaptureJobState == BitmapCaptureJobState.Running,

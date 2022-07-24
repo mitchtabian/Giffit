@@ -13,15 +13,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.codingwithmitch.giffit.MainLoadingState
 import com.codingwithmitch.giffit.MainViewModel
 import com.codingwithmitch.giffit.domain.DataState
 
 @Composable
 fun LoadingUI(
-    mainLoadingState: MainViewModel.MainLoadingState,
+    mainLoadingState: MainLoadingState,
 ) {
     when(mainLoadingState) {
-        is MainViewModel.MainLoadingState.Standard -> {
+        is MainLoadingState.Standard -> {
             when(mainLoadingState.loadingState) {
                 is DataState.Loading.LoadingState.Active -> {
                     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
@@ -36,7 +37,7 @@ fun LoadingUI(
                 }
             }
         }
-        is MainViewModel.MainLoadingState.ResizingGif -> {
+        is MainLoadingState.ResizingGif -> {
             when(val loadingState = mainLoadingState.loadingState) {
                 is DataState.Loading.LoadingState.Active -> {
                     ResizingGifProgressBar(loadingState.progress ?: 0f)

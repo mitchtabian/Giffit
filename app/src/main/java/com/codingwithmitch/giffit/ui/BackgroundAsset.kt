@@ -35,9 +35,7 @@ import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.AssetData
 import com.codingwithmitch.giffit.BitmapCaptureJobState
-import com.codingwithmitch.giffit.MainViewModel
-import com.codingwithmitch.giffit.MainViewModel.MainLoadingState
-import com.codingwithmitch.giffit.MainViewModel.MainLoadingState.*
+import com.codingwithmitch.giffit.MainLoadingState
 import com.codingwithmitch.giffit.domain.DataState
 import kotlin.math.PI
 import kotlin.math.abs
@@ -46,7 +44,7 @@ import kotlin.math.sin
 
 @Composable
 fun BackgroundAsset(
-    bitmapCaptureLoadingState: BitmapCapture?,
+    bitmapCaptureLoadingState: MainLoadingState.BitmapCapture?,
     isRecording: Boolean,
     updateBitmapCaptureJobState: (BitmapCaptureJobState) -> Unit,
     startBitmapCaptureJob: (View) -> Unit,
