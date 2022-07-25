@@ -27,7 +27,6 @@ constructor(
 ){
 
     fun execute(
-        context: Context,
         contentResolver: ContentResolver,
         bytes: ByteArray,
     ): Flow<DataState<Uri>> = flow {
@@ -35,7 +34,6 @@ constructor(
         try {
             emitAll(
                 saveGifToInternalStorage(
-                    context = context,
                     contentResolver = contentResolver,
                     bytes = bytes,
                     fileName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -53,7 +51,6 @@ constructor(
     }
 
     private fun saveGifToInternalStorage(
-        context: Context,
         contentResolver: ContentResolver,
         bytes: ByteArray,
         fileName: String,

@@ -162,7 +162,6 @@ constructor(
             // Need to be able to cancel the previous resize job.
             val job = Job()
             resizeGif.execute(
-                context = context,
                 contentResolver = contentResolver,
                 capturedBitmaps = it.capturedBitmaps,
                 originalGifSize = it.originalGifSize.toFloat(),
@@ -313,7 +312,6 @@ constructor(
         check(state.value is DisplayBackgroundAsset) { "buildGif: Invalid state: ${state.value}" }
         mainLoadingState.value = Standard(Active())
         buildGif.execute(
-            context = context,
             contentResolver = contentResolver,
             bitmaps = (state.value as DisplayBackgroundAsset).capturedBitmaps,
         ).onEach { dataState ->

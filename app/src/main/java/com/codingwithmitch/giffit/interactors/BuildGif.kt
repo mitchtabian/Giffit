@@ -26,7 +26,6 @@ class BuildGif(
      * @param context: null if not saving to cache.
      */
     fun execute(
-        context: Context,
         contentResolver: ContentResolver,
         bitmaps: List<Bitmap>,
     ): Flow<DataState<Uri>> =  flow {
@@ -42,7 +41,6 @@ class BuildGif(
             val byteArray = bos.toByteArray()
             emitAll(
                 saveGifToInternalStorage.execute(
-                    context = context,
                     contentResolver = contentResolver,
                     bytes = byteArray,
                 )

@@ -33,7 +33,6 @@ class ResizeGif(
     }
 
     fun execute(
-        context: Context,
         contentResolver: ContentResolver,
         capturedBitmaps: List<Bitmap>,
         originalGifSize: Float,
@@ -49,7 +48,6 @@ class ResizeGif(
         try {
            emitAll(
                resize(
-                   context = context,
                    contentResolver = contentResolver,
                    capturedBitmaps = capturedBitmaps,
                    originalGifSize = originalGifSize,
@@ -66,7 +64,6 @@ class ResizeGif(
     }
 
     private fun resize(
-        context: Context,
         contentResolver: ContentResolver,
         capturedBitmaps: List<Bitmap>,
         originalGifSize: Float,
@@ -95,7 +92,6 @@ class ResizeGif(
 
         emitAll(
             buildGif.execute(
-                context = context,
                 contentResolver = contentResolver,
                 bitmaps = resizedBitmaps,
             ).transform { dataState ->

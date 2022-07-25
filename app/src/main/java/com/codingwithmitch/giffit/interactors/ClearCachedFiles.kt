@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 /**
- * TODO("ktdoc)
+ * Clears all the cached files from the path provided via [CacheProvider].
  */
 class ClearCachedFiles
 constructor(
