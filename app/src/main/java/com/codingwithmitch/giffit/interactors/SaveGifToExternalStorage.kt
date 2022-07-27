@@ -1,5 +1,6 @@
 package com.codingwithmitch.giffit.interactors
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.net.Uri
@@ -9,9 +10,11 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.codingwithmitch.giffit.FileNameBuilder
 import com.codingwithmitch.giffit.domain.Constants
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -19,10 +22,20 @@ import java.io.File
 import java.io.FileInputStream
 
 /**
- * TODO("ktdoc")
+ * Saves a [Uri] to external storage.
+ * On [Build.VERSION_CODES.Q] and above we can use scoped storage and do not need to ask for
+ *  permission.
+ * On [Build.VERSION_CODES.P] and below we need to ask for the users permission to read/write
+ *  to external storage.
  */
-class SaveGifToExternalStorage {
+class SaveGifToExternalStorage(
+    private val versionProvider: VersionProvider,
+) {
 
+    /**
+     * Suppress the SDK_INT error since we're using [VersionProvider].
+     */
+    @SuppressLint("NewApi")
     fun execute(
         contentResolver: ContentResolver,
         cachedUri: Uri,
@@ -34,7 +47,7 @@ class SaveGifToExternalStorage {
             // Get bytes from cached file
             val bytes = getBytesFromUri(cachedUri)
             // If API >= 29 we can use scoped storage and don't require permission to save images.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (versionProvider.provideVersion() >= Build.VERSION_CODES.Q) {
                 emitAll(
                     saveGifToScopedStorage(
                         contentResolver = contentResolver,
@@ -68,18 +81,23 @@ class SaveGifToExternalStorage {
         contentResolver: ContentResolver,
         bytes: ByteArray,
     ): Flow<DataState<Uri>> = flow {
-        // Add content values so media is discoverable by android and added to common directories.
-        val contentValues = ContentValues()
-        val fileName = FileNameBuilder.buildFileName()
-        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.gif")
-        contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
-            contentResolver.openOutputStream(uri)?.let { os ->
-                os.write(bytes)
-                os.flush()
-                os.close()
-                emit(Data(uri))
-            } // <-- Don't need to throw since openOutputStream will.
-        } ?: throw Exception("Error inserting the uri into storage.")
+        try {
+            // Add content values so media is discoverable by android and added to common directories.
+            val contentValues = ContentValues()
+            val fileName = FileNameBuilder.buildFileName()
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.gif")
+            contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
+                contentResolver.openOutputStream(uri)?.let { os ->
+                    os.write(bytes)
+                    os.flush()
+                    os.close()
+                    emit(Data(uri))
+                } ?: emit(Error(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
+            } ?: emit(Error(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
+        } catch (e: Exception) {
+            emit(Error(e.message ?: SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
+        }
+
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -87,19 +105,24 @@ class SaveGifToExternalStorage {
         contentResolver: ContentResolver,
         bytes: ByteArray,
     ): Flow<DataState<Uri>> = flow {
-        val fileName = "${FileNameBuilder.buildFileNameAPI26()}.gif"
-        val externalUri: Uri =
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        // Add content values so media is discoverable by android and added to common directories.
-        val contentValues = ContentValues()
-        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-        val uri = contentResolver.insert(externalUri, contentValues) ?: throw Exception("Error inserting the uri into storage.")
-        contentResolver.openOutputStream(uri)?.let { os ->
-            os.write(bytes)
-            os.flush()
-            os.close()
-            emit(Data(uri))
-        } // <-- Don't need to throw since openOutputStream will.
+        try {
+            val fileName = "${FileNameBuilder.buildFileNameAPI26()}.gif"
+            val externalUri: Uri =
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            // Add content values so media is discoverable by android and added to common directories.
+            val contentValues = ContentValues()
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            val uri = contentResolver.insert(externalUri, contentValues) ?: throw Exception("Error inserting the uri into storage.")
+            contentResolver.openOutputStream(uri)?.let { os ->
+                os.write(bytes)
+                os.flush()
+                os.close()
+                emit(Data(uri))
+            } ?: emit(Error(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
+        } catch (e: Exception) {
+            Log.e(TAG, "saveGifToScopedStorage: ", e)
+            emit(Error(e.message ?: SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
+        }
     }
 
     companion object {

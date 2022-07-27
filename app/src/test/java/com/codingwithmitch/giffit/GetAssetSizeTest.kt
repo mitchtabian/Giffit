@@ -1,21 +1,29 @@
 package com.codingwithmitch.giffit
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.core.net.toFile
 import androidx.core.net.toUri
 import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.interactors.GetAssetSize
+import com.codingwithmitch.giffit.interactors.GetAssetSize.Companion.GET_ASSET_SIZE_ERROR
+import com.codingwithmitch.giffit.util.buildBitmap
+import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.MatcherAssert.assertThat
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.*
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
+import java.io.ByteArrayInputStream
 import java.io.File
-import java.io.FileOutputStream
+import java.io.FileNotFoundException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -31,44 +39,101 @@ class GetAssetSizeTest {
     @Test
     fun verifyEmissions() = runTest {
         val context = RuntimeEnvironment.getApplication()
+        val contentResolver = context.contentResolver
 
-        // Save an image to cache
-        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.deal_with_it_sunglasses_default)
-        val file = File(context.cacheDir, "someBitmap.png")
-        val fos = FileOutputStream(file)
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
-        fos.close()
+        // Create a Bitmap
+        val byteArray = buildBitmap(context.resources)
+        val bitmapSize = byteArray.size
+
+        // Save to cache.
+        // Note: Technically it will save as a gif but it doesn't matter for the test.
+        val cacheProvider = RealCacheProvider(context)
+        val uri = saveBytesToInternalStorage(
+            cacheProvider = cacheProvider,
+            contentResolver = contentResolver,
+            bytes = byteArray
+        )
+        val file = uri.toFile()
 
         // Confirm the file exists in the cache
-        val internalStorageDirectory = context.cacheDir
-        internalStorageDirectory.listFiles().forEach {
-            System.out.println("name: ${it.name}")
-            System.out.println("SIZE: ${it.length()}")
-        }
+        assertThat(cacheProvider.gifCache().listFiles().size, equalTo(1))
+        assertThat(cacheProvider.gifCache().listFiles()[0].name, equalTo(file.name))
+
+        // Configure ContentResolver. This is required in unit tests with Roboelectric.
+        val shadowContentResolver = shadowOf(context.contentResolver)
+        shadowContentResolver.registerInputStream(uri, ByteArrayInputStream(ByteArray(bitmapSize)))
 
         // Execute the use-case
-        val uri = Uri.fromFile(file)
-        System.out.println("uri: ${uri}")
         val emissions = getAssetSize.execute(
-            contentResolver = context.contentResolver,
+            contentResolver = contentResolver,
             uri = uri
         ).toList()
 
-        var fileSize = 0
-        val inputStream = context.contentResolver.openInputStream(uri)
-        if (inputStream != null) {
-            fileSize = inputStream.available()
-            inputStream.close()
-        }
-        System.out.println("Expected size: ${fileSize}")
-
-        assert(emissions[0] == DataState.Loading<Int>(DataState.Loading.LoadingState.Active()))
-        System.out.println("SIZE: ${emissions[1]}")
-        assert(emissions[0] == DataState.Data<Int>(fileSize))
-//        assert(emissions[0] == DataState.Loading<Int>(DataState.Loading.LoadingState.Active()))
-
+        // Confirm the emissions are correct.
+        assertThat(emissions[0], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Data<Int>(bitmapSize)))
+        assertThat(emissions[2], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Idle)))
     }
 
+    @Test
+    fun verifyNullUriThrows() = runTest {
+        // Execute the use-case
+        val emissions = getAssetSize.execute(
+            contentResolver = RuntimeEnvironment.getApplication().contentResolver,
+            uri = null
+        ).toList()
+
+        // Confirm the emissions are correct.
+        assertThat(emissions[0], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Error<Uri>("Null asset Uri.")))
+        assertThat(emissions[2], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Idle)))
+    }
+
+    @Test
+    fun verifyInputStreamErrorThrows() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val cacheDir = context.cacheDir
+
+        // Create a dummy file
+        val file = File.createTempFile("someBitmap.png", null, cacheDir)
+
+        // Execute the use-case
+        val emissions = getAssetSize.execute(
+            contentResolver = mock {
+                // Force throw exception
+                on { openInputStream(any()) } doThrow FileNotFoundException("Something is busted")
+            },
+            uri = file.toUri()
+        ).toList()
+
+        // Confirm the emissions are correct.
+        assertThat(emissions[0], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Error<Uri>("Something is busted")))
+        assertThat(emissions[2], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Idle)))
+    }
+
+    @Test
+    fun verifyErrorEmissionIfNullInputStream() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val cacheDir = context.cacheDir
+
+        // Create a dummy file
+        val file = File.createTempFile("someBitmap.png", null, cacheDir)
+
+        // Execute the use-case
+        val emissions = getAssetSize.execute(
+            contentResolver = mock {
+                // Force throw exception
+                on { openInputStream(any()) } doReturn null
+            },
+            uri = file.toUri()
+        ).toList()
+
+        // Confirm the emissions are correct.
+        assertThat(emissions[0], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Error<Uri>(GET_ASSET_SIZE_ERROR)))
+        assertThat(emissions[2], equalTo(DataState.Loading<Int>(DataState.Loading.LoadingState.Idle)))
+    }
 }
 
 

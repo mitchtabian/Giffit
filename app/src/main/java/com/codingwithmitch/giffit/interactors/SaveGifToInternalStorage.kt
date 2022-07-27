@@ -9,6 +9,7 @@ import androidx.core.net.toUri
 import com.codingwithmitch.giffit.FileNameBuilder
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.Constants
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -18,8 +19,8 @@ import kotlinx.coroutines.flow.flow
 import java.io.File
 
 /**
- * TODO("ktdoc")
- * Does not need permissions to write/read to internal storage.
+ * Save a [ByteArray] to internal storage.
+ * You do not need permissions to write/read to internal storage.
  */
 class SaveGifToInternalStorage
 constructor(
@@ -55,14 +56,19 @@ constructor(
         bytes: ByteArray,
         fileName: String,
     ): Flow<DataState<Uri>> = flow {
-        val file = File.createTempFile(fileName, null, cacheProvider.gifCache())
-        val uri = file.toUri()
-        contentResolver.openOutputStream(uri)?.let { os ->
-            os.write(bytes)
-            os.flush()
-            os.close()
-            emit(Data(uri))
-        } // <-- Don't need to throw since openOutputStream will.
+        try {
+            val file = File.createTempFile(fileName, null, cacheProvider.gifCache())
+            val uri = file.toUri()
+            contentResolver.openOutputStream(uri)?.let { os ->
+                os.write(bytes)
+                os.flush()
+                os.close()
+                emit(Data(uri))
+            } ?: throw Exception(SAVE_GIF_TO_INTERNAL_STORAGE_ERROR)
+        } catch (e: Exception) {
+            Log.e(TAG, "saveGifToInternalStorage: ", e)
+            emit(Error(e.message ?: SAVE_GIF_TO_INTERNAL_STORAGE_ERROR))
+        }
     }
 
     companion object {

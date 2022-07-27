@@ -26,7 +26,7 @@ class GetAssetSize {
             // If the warning bothers you, use runCatching {...}
             val inputStream = contentResolver.openInputStream(uri)
             if (inputStream != null) {
-                emit(Data(inputStream.available()))
+                emit(Data(inputStream.readBytes().size))
                 inputStream.close()
             } else {
                 throw Exception(GET_ASSET_SIZE_ERROR)
