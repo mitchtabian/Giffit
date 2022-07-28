@@ -60,6 +60,7 @@ class GetAssetSizeTest {
         assertThat(cacheProvider.gifCache().listFiles()[0].name, equalTo(file.name))
 
         // Configure ContentResolver. This is required in unit tests with Roboelectric.
+        // Otherwise the inputstream will not write anything.
         val shadowContentResolver = shadowOf(context.contentResolver)
         shadowContentResolver.registerInputStream(uri, ByteArrayInputStream(ByteArray(bitmapSize)))
 

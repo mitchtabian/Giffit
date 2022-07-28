@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Log
 import android.view.View
 import android.view.Window
 import androidx.activity.result.ActivityResultLauncher
@@ -19,10 +18,10 @@ import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
 import com.codingwithmitch.giffit.MainLoadingState.*
 import com.codingwithmitch.giffit.MainViewModel.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
-import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.RealVersionProvider
 import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps.Companion.CAPTURE_BITMAP_SUCCESS
@@ -44,7 +43,8 @@ constructor(
 
     private val captureBitmaps = CaptureBitmaps()
     private val saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider)
-    private val saveGifToExternalStorage = SaveGifToExternalStorage()
+    private val versionProvider = RealVersionProvider()
+    private val saveGifToExternalStorage = SaveGifToExternalStorage(versionProvider)
     private val buildGif = BuildGif(saveGifToInternalStorage)
     private val getAssetSize = GetAssetSize()
     private val resizeGif = ResizeGif(
