@@ -1,5 +1,6 @@
 package com.codingwithmitch.giffit.interactors
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -7,10 +8,8 @@ import android.os.Build
 import android.util.Log
 import androidx.core.net.toUri
 import com.codingwithmitch.giffit.FileNameBuilder
-import com.codingwithmitch.giffit.domain.CacheProvider
-import com.codingwithmitch.giffit.domain.Constants
+import com.codingwithmitch.giffit.domain.*
 import com.codingwithmitch.giffit.domain.Constants.TAG
-import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.flow.Flow
@@ -20,13 +19,17 @@ import java.io.File
 
 /**
  * Save a [ByteArray] to internal storage.
- * You do not need permissions to write/read to internal storage.
+ * You do not need permissions to write/read to internal storage at any API level.
  */
-class SaveGifToInternalStorage
-constructor(
-    private val cacheProvider: CacheProvider
+class SaveGifToInternalStorage(
+    private val cacheProvider: CacheProvider,
+    private val versionProvider: VersionProvider
 ){
 
+    /**
+     * Suppress the SDK_INT error since we're using [VersionProvider].
+     */
+    @SuppressLint("NewApi")
     fun execute(
         contentResolver: ContentResolver,
         bytes: ByteArray,
@@ -37,7 +40,7 @@ constructor(
                 saveGifToInternalStorage(
                     contentResolver = contentResolver,
                     bytes = bytes,
-                    fileName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    fileName = if (versionProvider.provideVersion() >= 29) {
                         "${FileNameBuilder.buildFileNameAPI26()}.gif"
                     } else {
                         "${FileNameBuilder.buildFileName()}.gif"
@@ -45,7 +48,7 @@ constructor(
                 )
             )
         } catch (e: Exception) {
-            Log.e(Constants.TAG, "GetAssetSize: ", e)
+            Log.e(TAG, "GetAssetSize: ", e)
             emit(Error(e.message ?: SAVE_GIF_TO_INTERNAL_STORAGE_ERROR))
         }
         emit(Loading(Idle))

@@ -5,8 +5,9 @@ import android.net.Uri
 import android.provider.MediaStore
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
+import com.codingwithmitch.giffit.domain.RealVersionProvider
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorage
-import com.codingwithmitch.giffit.util.buildBitmap
+import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -27,6 +28,7 @@ import java.io.File
 class SaveGifToExternalStorageTest {
 
     private lateinit var saveGifToExternalStorage: SaveGifToExternalStorage
+    private val versionProvider = RealVersionProvider()
 
     @Test
     fun `save to internal storage on API 29+`() = runTest {
@@ -41,12 +43,13 @@ class SaveGifToExternalStorageTest {
         )
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
         val cachedUri = saveBytesToInternalStorage(
             cacheProvider = cacheProvider,
+            versionProvider = versionProvider,
             contentResolver = contentResolver,
             bytes = byteArray
         )
@@ -99,12 +102,13 @@ class SaveGifToExternalStorageTest {
         )
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
         val cachedUri = saveBytesToInternalStorage(
             cacheProvider = cacheProvider,
+            versionProvider = versionProvider,
             contentResolver = contentResolver,
             bytes = byteArray
         )
@@ -160,12 +164,13 @@ class SaveGifToExternalStorageTest {
         )
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
         val cachedUri = saveBytesToInternalStorage(
             cacheProvider = cacheProvider,
+            versionProvider = versionProvider,
             contentResolver = contentResolver,
             bytes = byteArray
         )
@@ -212,12 +217,13 @@ class SaveGifToExternalStorageTest {
         )
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
         val cachedUri = saveBytesToInternalStorage(
             cacheProvider = cacheProvider,
+            versionProvider = versionProvider,
             contentResolver = contentResolver,
             bytes = byteArray
         )
@@ -264,12 +270,13 @@ class SaveGifToExternalStorageTest {
         )
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
         val cachedUri = saveBytesToInternalStorage(
             cacheProvider = cacheProvider,
+            versionProvider = versionProvider,
             contentResolver = contentResolver,
             bytes = byteArray
         )

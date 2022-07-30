@@ -22,11 +22,14 @@ import kotlinx.coroutines.flow.flow
 import java.io.File
 
 /**
- * Saves a [Uri] to external storage.
- * On [Build.VERSION_CODES.Q] and above we can use scoped storage and do not need to ask for
- *  permission.
- * On [Build.VERSION_CODES.P] and below we need to ask for the users permission to read/write
- *  to external storage.
+ * Saves a cached [Uri] to external storage. A cached [Uri] is defined as a [Uri] that is
+ *  saved to [CacheProvider.gifCache()].
+ *
+ * There is two possible pathways:
+ * (1) On API 29 + you do not need permissions to write/read to internal storage (Scoped Storage).
+ *   This pathway is via [saveGifToScopedStorage].
+ *  (2) On API 28- you must ask for read/write permissions.
+ *   This pathway is via [saveGifToStorage].
  */
 class SaveGifToExternalStorage(
     private val versionProvider: VersionProvider,

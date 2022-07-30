@@ -5,9 +5,10 @@ import androidx.core.net.toFile
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.RealCacheProvider
+import com.codingwithmitch.giffit.domain.RealVersionProvider
 import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage
 import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage.Companion.SAVE_GIF_TO_INTERNAL_STORAGE_ERROR
-import com.codingwithmitch.giffit.util.buildBitmap
+import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -30,7 +31,10 @@ class SaveGifToInternalStorageTest {
 
     @Before
     fun init() {
-        saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider)
+        saveGifToInternalStorage = SaveGifToInternalStorage(
+            cacheProvider = cacheProvider,
+            versionProvider = RealVersionProvider()
+        )
     }
 
     @Test
@@ -39,7 +43,7 @@ class SaveGifToInternalStorageTest {
         val contentResolver = context.contentResolver
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Execute the use-case
         val emissions = saveGifToInternalStorage.execute(
@@ -64,7 +68,7 @@ class SaveGifToInternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Execute the use-case
         val emissions = saveGifToInternalStorage.execute(
@@ -86,7 +90,7 @@ class SaveGifToInternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
 
         // Execute the use-case
         val emissions = saveGifToInternalStorage.execute(

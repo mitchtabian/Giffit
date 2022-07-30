@@ -5,9 +5,10 @@ import androidx.core.net.toFile
 import androidx.core.net.toUri
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
+import com.codingwithmitch.giffit.domain.RealVersionProvider
 import com.codingwithmitch.giffit.interactors.GetAssetSize
 import com.codingwithmitch.giffit.interactors.GetAssetSize.Companion.GET_ASSET_SIZE_ERROR
-import com.codingwithmitch.giffit.util.buildBitmap
+import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -42,7 +43,7 @@ class GetAssetSizeTest {
         val contentResolver = context.contentResolver
 
         // Create a Bitmap
-        val byteArray = buildBitmap(context.resources)
+        val byteArray = buildBitmapByteArray(context.resources)
         val bitmapSize = byteArray.size
 
         // Save to cache.
@@ -50,6 +51,7 @@ class GetAssetSizeTest {
         val cacheProvider = RealCacheProvider(context)
         val uri = saveBytesToInternalStorage(
             cacheProvider = cacheProvider,
+            versionProvider = RealVersionProvider(),
             contentResolver = contentResolver,
             bytes = byteArray
         )

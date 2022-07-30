@@ -1,7 +1,6 @@
 package com.codingwithmitch.giffit.interactors
 
 import android.content.ContentResolver
-import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
@@ -16,21 +15,21 @@ import kotlinx.coroutines.flow.flow
 import java.io.ByteArrayOutputStream
 
 /**
- * TODO("ktdoc")
+ * Builds a gif given a list of [Bitmap]'s and saves it to internal storage.
+ * We do not need read/write permission because saving to the cache does
+ *  not require it.
  */
 class BuildGif(
     private val saveGifToInternalStorage: SaveGifToInternalStorage
 ) {
 
-    /**
-     * @param context: null if not saving to cache.
-     */
     fun execute(
         contentResolver: ContentResolver,
         bitmaps: List<Bitmap>,
     ): Flow<DataState<Uri>> =  flow {
         emit(Loading(Active()))
         try {
+            check(bitmaps.isNotEmpty()) { NO_BITMAPS_ERROR }
             val writer = AnimatedGIFWriter(true)
             val bos = ByteArrayOutputStream()
             writer.prepareForWrite(bos, -1, -1)
@@ -54,6 +53,7 @@ class BuildGif(
 
     companion object {
         const val BUILD_GIF_ERROR = "An error occurred while building the gif."
+        const val NO_BITMAPS_ERROR = "\"You can't build a gif when there are no Bitmaps!\""
     }
 }
 

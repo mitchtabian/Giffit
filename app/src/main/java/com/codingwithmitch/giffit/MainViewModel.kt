@@ -4,9 +4,11 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import android.view.View
 import android.view.Window
 import androidx.activity.result.ActivityResultLauncher
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
@@ -18,6 +20,7 @@ import com.codingwithmitch.giffit.BitmapCaptureJobState.Running
 import com.codingwithmitch.giffit.MainLoadingState.*
 import com.codingwithmitch.giffit.MainViewModel.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
+import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -42,8 +45,8 @@ constructor(
     private val ioScope = CoroutineScope(IO)
 
     private val captureBitmaps = CaptureBitmaps()
-    private val saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider)
     private val versionProvider = RealVersionProvider()
+    private val saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider, versionProvider)
     private val saveGifToExternalStorage = SaveGifToExternalStorage(versionProvider)
     private val buildGif = BuildGif(saveGifToInternalStorage)
     private val getAssetSize = GetAssetSize()
@@ -367,14 +370,6 @@ constructor(
         )
     }
 
-    private fun discardCachedGif(uri: Uri) {
-        val file = File(uri.path)
-        val success = file.delete()
-        if (!success) {
-            throw Exception("$DISCARD_CACHED_GIF_ERROR $uri.")
-        }
-    }
-
     fun updateAdjustedBytes(adjustedBytes: Int) {
         check(state.value is DisplayGif) { "updateAdjustedBytes: Invalid state: ${state.value}" }
         state.value = (state.value as DisplayGif).copy(
@@ -391,6 +386,14 @@ constructor(
 
     companion object {
         const val DISCARD_CACHED_GIF_ERROR = "Failed to delete cached gif at uri: "
+
+        @VisibleForTesting fun discardCachedGif(uri: Uri) {
+            val file = File(uri.path)
+            val success = file.delete()
+            if (!success) {
+                throw Exception("$DISCARD_CACHED_GIF_ERROR $uri.")
+            }
+        }
     }
 }
 
