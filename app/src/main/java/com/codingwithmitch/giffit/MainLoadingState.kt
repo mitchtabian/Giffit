@@ -6,7 +6,12 @@ sealed class MainLoadingState {
 
         abstract val loadingState: LoadingState
 
-        /**
+        object None: MainLoadingState() {
+            override val loadingState: LoadingState
+                get() = LoadingState.Idle
+        }
+
+    /**
          * Shows an indeterminate progress bar occupying the entire view.
          */
         data class Standard(

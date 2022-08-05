@@ -34,7 +34,6 @@ import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.AssetData
-import com.codingwithmitch.giffit.BitmapCaptureJobState
 import com.codingwithmitch.giffit.MainLoadingState
 import com.codingwithmitch.giffit.domain.DataState
 import kotlin.math.PI
@@ -45,8 +44,7 @@ import kotlin.math.sin
 @Composable
 fun BackgroundAsset(
     bitmapCaptureLoadingState: MainLoadingState.BitmapCapture?,
-    isRecording: Boolean,
-    updateBitmapCaptureJobState: (BitmapCaptureJobState) -> Unit,
+    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
     startBitmapCaptureJob: (View) -> Unit,
     backgroundAssetUri: Uri,
     assetData: AssetData,
@@ -80,6 +78,9 @@ fun BackgroundAsset(
                 }
             }
         }
+        val isRecording = bitmapCaptureLoadingState != null &&
+                bitmapCaptureLoadingState.loadingState is DataState.Loading.LoadingState.Active &&
+                (bitmapCaptureLoadingState.loadingState.progress ?: 0f) > 0f
         RecordButton(
             modifier = Modifier.weight(1f),
             isRecording = isRecording,
@@ -127,7 +128,7 @@ fun RenderBackground(
 fun RecordButton(
     modifier: Modifier,
     isRecording: Boolean,
-    updateBitmapCaptureJobState: (BitmapCaptureJobState) -> Unit,
+    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
     startBitmapCaptureJob: () -> Unit,
 ) {
     Button(
@@ -146,11 +147,11 @@ fun RecordButton(
         },
         onClick = {
             val newJobState = when(isRecording) {
-                true -> BitmapCaptureJobState.Idle
-                false -> BitmapCaptureJobState.Running
+                true -> DataState.Loading.LoadingState.Idle
+                false -> DataState.Loading.LoadingState.Active()
             }
             updateBitmapCaptureJobState(newJobState)
-            if (newJobState == BitmapCaptureJobState.Running) { // Start recording
+            if (newJobState is DataState.Loading.LoadingState.Active) { // Start recording
                 startBitmapCaptureJob()
             }
         }

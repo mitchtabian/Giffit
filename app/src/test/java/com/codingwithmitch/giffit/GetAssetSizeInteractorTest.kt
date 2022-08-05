@@ -6,8 +6,8 @@ import androidx.core.net.toUri
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.interactors.GetAssetSize
-import com.codingwithmitch.giffit.interactors.GetAssetSize.Companion.GET_ASSET_SIZE_ERROR
+import com.codingwithmitch.giffit.interactors.GetAssetSizeInteractor
+import com.codingwithmitch.giffit.interactors.GetAssetSizeInteractor.Companion.GET_ASSET_SIZE_ERROR
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -28,13 +28,13 @@ import java.io.FileNotFoundException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class GetAssetSizeTest {
+class GetAssetSizeInteractorTest {
 
-    private lateinit var getAssetSize: GetAssetSize
+    private lateinit var getAssetSizeInteractor: GetAssetSizeInteractor
 
     @Before
     fun init() {
-        getAssetSize = GetAssetSize()
+        getAssetSizeInteractor = GetAssetSizeInteractor()
     }
 
     @Test
@@ -67,7 +67,7 @@ class GetAssetSizeTest {
         shadowContentResolver.registerInputStream(uri, ByteArrayInputStream(ByteArray(bitmapSize)))
 
         // Execute the use-case
-        val emissions = getAssetSize.execute(
+        val emissions = getAssetSizeInteractor.execute(
             contentResolver = contentResolver,
             uri = uri
         ).toList()
@@ -81,7 +81,7 @@ class GetAssetSizeTest {
     @Test
     fun verifyNullUriThrows() = runTest {
         // Execute the use-case
-        val emissions = getAssetSize.execute(
+        val emissions = getAssetSizeInteractor.execute(
             contentResolver = RuntimeEnvironment.getApplication().contentResolver,
             uri = null
         ).toList()
@@ -101,7 +101,7 @@ class GetAssetSizeTest {
         val file = File.createTempFile("someBitmap.png", null, cacheDir)
 
         // Execute the use-case
-        val emissions = getAssetSize.execute(
+        val emissions = getAssetSizeInteractor.execute(
             contentResolver = mock {
                 // Force throw exception
                 on { openInputStream(any()) } doThrow FileNotFoundException("Something is busted")
@@ -124,7 +124,7 @@ class GetAssetSizeTest {
         val file = File.createTempFile("someBitmap.png", null, cacheDir)
 
         // Execute the use-case
-        val emissions = getAssetSize.execute(
+        val emissions = getAssetSizeInteractor.execute(
             contentResolver = mock {
                 // Force throw exception
                 on { openInputStream(any()) } doReturn null

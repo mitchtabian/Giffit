@@ -9,7 +9,7 @@ import com.codingwithmitch.giffit.R
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.VersionProvider
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
 import kotlinx.coroutines.flow.toList
 import java.io.ByteArrayOutputStream
 
@@ -42,8 +42,8 @@ suspend fun saveBytesToInternalStorage(
     contentResolver: ContentResolver,
     bytes: ByteArray,
 ): Uri {
-    val saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider, versionProvider)
-    val storageEmissions = saveGifToInternalStorage.execute(
+    val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(cacheProvider, versionProvider)
+    val storageEmissions = saveGifToInternalStorageInteractor.execute(
         contentResolver = contentResolver,
         bytes = bytes
     ).toList()

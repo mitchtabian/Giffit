@@ -10,9 +10,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 /**
- * Clears all the cached files from the path provided via [CacheProvider].
+ * Interactor for clearing all the cached files from the path provided via [CacheProvider].
  */
-class ClearCachedFiles
+class ClearGifCacheInteractor
 constructor(
     private val cacheProvider: CacheProvider
 ){
@@ -20,11 +20,7 @@ constructor(
     fun execute(): Flow<DataState<Unit>> = flow {
         emit(Loading(Active()))
         try {
-            val internalStorageDirectory = cacheProvider.gifCache()
-            val files = internalStorageDirectory.listFiles()
-            for(file in files) {
-                file.delete()
-            }
+            clearGifCache(cacheProvider)
             emit(Data(Unit)) // Done
         } catch (e: Exception) {
             Log.e(TAG, "ClearCachedFiles: ", e)
@@ -35,6 +31,19 @@ constructor(
 
     companion object {
         const val CLEAR_CACHED_FILES_ERROR = "An error occurred deleting the cached files."
+
+        /**
+         * Clears all the cached files from the path provided via [CacheProvider].
+         */
+        fun clearGifCache(
+            cacheProvider: CacheProvider
+        ) {
+            val internalStorageDirectory = cacheProvider.gifCache()
+            val files = internalStorageDirectory.listFiles()
+            for(file in files) {
+                file.delete()
+            }
+        }
     }
 }
 

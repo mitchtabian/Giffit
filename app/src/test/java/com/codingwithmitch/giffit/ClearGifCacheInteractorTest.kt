@@ -3,7 +3,7 @@ package com.codingwithmitch.giffit
 import androidx.core.net.toUri
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
-import com.codingwithmitch.giffit.interactors.ClearCachedFiles
+import com.codingwithmitch.giffit.interactors.ClearGifCacheInteractor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -17,14 +17,14 @@ import java.util.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class ClearCachedFilesTest {
+class ClearGifCacheInteractorTest {
 
-    private lateinit var clearCachedFiles: ClearCachedFiles
+    private lateinit var clearGifCacheInteractor: ClearGifCacheInteractor
     private val cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication())
 
     @Before
     fun init() {
-        clearCachedFiles = ClearCachedFiles(cacheProvider)
+        clearGifCacheInteractor = ClearGifCacheInteractor(cacheProvider)
     }
 
     @Test
@@ -50,7 +50,7 @@ class ClearCachedFilesTest {
         }
 
         // Execute use-case and confirm the files are deleted
-        clearCachedFiles.execute().toList()
+        clearGifCacheInteractor.execute().toList()
 
         files = internalStorageDirectory.listFiles()
         assert(files.isEmpty())
@@ -58,7 +58,7 @@ class ClearCachedFilesTest {
 
     @Test
     fun verifyFlowEmissions() = runTest {
-        val emissions = clearCachedFiles.execute().toList()
+        val emissions = clearGifCacheInteractor.execute().toList()
         assert(emissions[0] == DataState.Loading<Unit>(DataState.Loading.LoadingState.Active()))
         assert(emissions[1] == DataState.Data(Unit))
         assert(emissions[2] == DataState.Loading<Unit>(DataState.Loading.LoadingState.Idle))

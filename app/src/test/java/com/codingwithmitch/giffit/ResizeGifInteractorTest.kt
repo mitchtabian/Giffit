@@ -1,15 +1,13 @@
 package com.codingwithmitch.giffit
 
 import android.graphics.Bitmap
-import android.net.Uri
 import com.codingwithmitch.giffit.MainViewModel.Companion.discardCachedGif
-import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.interactors.BuildGif
-import com.codingwithmitch.giffit.interactors.GetAssetSize
-import com.codingwithmitch.giffit.interactors.ResizeGif
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage
+import com.codingwithmitch.giffit.interactors.BuildGifInteractor
+import com.codingwithmitch.giffit.interactors.GetAssetSizeInteractor
+import com.codingwithmitch.giffit.interactors.ResizeGifInteractor
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
 import com.codingwithmitch.giffit.util.buildBitmap
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,18 +21,18 @@ import org.robolectric.RuntimeEnvironment
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class ResizeGifTest {
+class ResizeGifInteractorTest {
 
-    private lateinit var resizeGif: ResizeGif
+    private lateinit var resizeGifInteractor: ResizeGifInteractor
 
-    private val getAssetSize = GetAssetSize()
+    private val getAssetSizeInteractor = GetAssetSizeInteractor()
 
-    private val saveGifToInternalStorage = SaveGifToInternalStorage(
+    private val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(
         cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication()),
         versionProvider = RealVersionProvider()
     )
 
-    private val buildGif = BuildGif(saveGifToInternalStorage)
+    private val buildGifInteractor = BuildGifInteractor(saveGifToInternalStorageInteractor)
 
     // Build some dummy bitmaps to build a gif with.
     private val bitmaps: List<Bitmap> by lazy {
@@ -47,9 +45,9 @@ class ResizeGifTest {
 
     @Before
     fun init() {
-        resizeGif = ResizeGif(
-            buildGif = buildGif,
-            getAssetSize = getAssetSize
+        resizeGifInteractor = ResizeGifInteractor(
+            buildGif = buildGifInteractor,
+            getAssetSize = getAssetSizeInteractor
         )
     }
 
@@ -77,13 +75,13 @@ class ResizeGifTest {
         // The goal is to verify the process of resizing it.
         val originalGifSize = buildBitmapByteArray(context.resources).size * 5
 
-        val resizeEmissions = resizeGif.execute(
+        val resizeEmissions = resizeGifInteractor.execute(
             contentResolver = contentResolver,
             capturedBitmaps = bitmaps,
             originalGifSize = originalGifSize.toFloat(),
             targetSize = originalGifSize.toFloat() / 2,
             previousUri = null,
-            percentageLoss = ResizeGif.percentageLossIncrementSize,
+            percentageLoss = ResizeGifInteractor.percentageLossIncrementSize,
             discardCachedGif = ::discardCachedGif
         ).toList()
 

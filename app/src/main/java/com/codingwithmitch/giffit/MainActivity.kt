@@ -25,7 +25,8 @@ import com.codingwithmitch.giffit.MainViewModel.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider
-import com.codingwithmitch.giffit.interactors.ResizeGif
+import com.codingwithmitch.giffit.domain.RealVersionProvider
+import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.ui.*
 import com.codingwithmitch.giffit.ui.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var imageLoader: ImageLoader
 
     private lateinit var cacheProvider: CacheProvider
+    private lateinit var versionProvider: VersionProvider
 
     private fun launchPermissionRequest() {
         externalStoragePermissionRequest.launch(
@@ -98,8 +100,11 @@ class MainActivity : ComponentActivity() {
         if (!::cacheProvider.isInitialized) {
             cacheProvider = RealCacheProvider(this@MainActivity)
         }
+        if (!::versionProvider.isInitialized) {
+            versionProvider = RealVersionProvider()
+        }
         if (!::viewModel.isInitialized) {
-            viewModel = MainViewModel(cacheProvider)
+            viewModel = MainViewModel(cacheProvider, versionProvider)
         }
 
         viewModel.toastEventRelay.onEach { message ->
@@ -172,45 +177,37 @@ class MainActivity : ComponentActivity() {
                                 updateSizePercentage = viewModel::updateSizePercentage,
                                 resizeGif = {
                                     viewModel.resizeGif(
-                                        context = this@MainActivity,
                                         contentResolver = contentResolver,
-                                        launchPermissionRequest = {
-                                            launchPermissionRequest()
-                                        },
-                                        checkFilePermissions = {
-                                            checkFilePermissions()
-                                        },
-                                        previousUri = null,
-                                        percentageLoss = ResizeGif.percentageLossIncrementSize
                                     )
                                 }
                             )
-                            is DisplayBackgroundAsset -> BackgroundAsset(
-                                bitmapCaptureLoadingState = when (mainLoadingState) {
+                            is DisplayBackgroundAsset -> {
+                                val bitmapCaptureLoadingState = when (mainLoadingState) {
                                     is MainLoadingState.BitmapCapture -> mainLoadingState
                                     else -> null
-                                },
-                                isRecording = state.bitmapCaptureJobState == BitmapCaptureJobState.Running,
-                                updateBitmapCaptureJobState = {
-                                    viewModel.state.value = state.copy(bitmapCaptureJobState = it)
-                                },
-                                startBitmapCaptureJob = { view ->
-                                    viewModel.runBitmapCaptureJob(
-                                        context = this@MainActivity,
-                                        contentResolver = contentResolver,
-                                        capturingViewBounds = state.capturingViewBounds,
-                                        window = window,
-                                        view = view,
-                                    )
-                                },
-                                backgroundAssetUri = state.backgroundAssetUri,
-                                assetData = state.assetData,
-                                updateCapturingViewBounds = { rect ->
-                                    viewModel.state.value = state.copy(capturingViewBounds = rect)
                                 }
-                            )
+                                BackgroundAsset(
+                                    bitmapCaptureLoadingState = bitmapCaptureLoadingState,
+                                    updateBitmapCaptureJobState = {
+                                        viewModel.mainLoadingState.value = MainLoadingState.BitmapCapture(it)
+                                    },
+                                    startBitmapCaptureJob = { view ->
+                                        viewModel.runBitmapCaptureJob(
+                                            contentResolver = contentResolver,
+                                            capturingViewBounds = state.capturingViewBounds,
+                                            window = window,
+                                            view = view,
+                                        )
+                                    },
+                                    backgroundAssetUri = state.backgroundAssetUri,
+                                    assetData = state.assetData,
+                                    updateCapturingViewBounds = { rect ->
+                                        viewModel.state.value = state.copy(capturingViewBounds = rect)
+                                    }
+                                )
+                            }
                         }
-                        Footer(state) {
+                        Footer(state, mainLoadingState) {
                             backgroundAssetPickerLauncher.launch("image/*")
                         }
                     }

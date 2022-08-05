@@ -6,7 +6,7 @@ import android.provider.MediaStore
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorage
+import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,9 +25,9 @@ import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class SaveGifToExternalStorageTest {
+class SaveGifToExternalStorageInteractorTest {
 
-    private lateinit var saveGifToExternalStorage: SaveGifToExternalStorage
+    private lateinit var saveGifToExternalStorageInteractor: SaveGifToExternalStorageInteractor
     private val versionProvider = RealVersionProvider()
 
     @Test
@@ -35,7 +35,7 @@ class SaveGifToExternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        saveGifToExternalStorage = SaveGifToExternalStorage(
+        saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(
             mock {
                 // Set API = 29
                 on { provideVersion() } doReturn 29
@@ -68,7 +68,7 @@ class SaveGifToExternalStorageTest {
         shadowContentResolver.registerInputStream(cachedUri, ByteArrayInputStream(ByteArray(byteArray.size)))
 
         // Save to external storage
-        val emissions = saveGifToExternalStorage.execute(
+        val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = contentResolver,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
@@ -94,7 +94,7 @@ class SaveGifToExternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        saveGifToExternalStorage = SaveGifToExternalStorage(
+        saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(
             mock {
                 // Set API = 28
                 on { provideVersion() } doReturn 28
@@ -128,7 +128,7 @@ class SaveGifToExternalStorageTest {
         shadowContentResolver.registerInputStream(cachedUri, ByteArrayInputStream(ByteArray(byteArray.size)))
 
         // Save to external storage
-        val emissions = saveGifToExternalStorage.execute(
+        val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = contentResolver,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
@@ -156,7 +156,7 @@ class SaveGifToExternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        saveGifToExternalStorage = SaveGifToExternalStorage(
+        saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(
             mock {
                 // Set API = 28
                 on { provideVersion() } doReturn 28
@@ -186,7 +186,7 @@ class SaveGifToExternalStorageTest {
         // Save to external storage
         // We don't need to configure the ShadowContentResolver since file permission has not
         // been accepted.
-        val emissions = saveGifToExternalStorage.execute(
+        val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = contentResolver,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
@@ -209,7 +209,7 @@ class SaveGifToExternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        saveGifToExternalStorage = SaveGifToExternalStorage(
+        saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(
             mock {
                 // Set API = 29
                 on { provideVersion() } doReturn 29
@@ -240,7 +240,7 @@ class SaveGifToExternalStorageTest {
         }
 
         // Save to external storage
-        val emissions = saveGifToExternalStorage.execute(
+        val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = badContentResolver,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
@@ -262,7 +262,7 @@ class SaveGifToExternalStorageTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        saveGifToExternalStorage = SaveGifToExternalStorage(
+        saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(
             mock {
                 // Set API = 29
                 on { provideVersion() } doReturn 28
@@ -295,7 +295,7 @@ class SaveGifToExternalStorageTest {
         }
 
         // Save to external storage
-        val emissions = saveGifToExternalStorage.execute(
+        val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = badContentResolver,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,

@@ -4,40 +4,30 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.core.net.toFile
 import com.codingwithmitch.giffit.domain.*
-import com.codingwithmitch.giffit.interactors.BuildGif
-import com.codingwithmitch.giffit.interactors.BuildGif.Companion.NO_BITMAPS_ERROR
-import com.codingwithmitch.giffit.interactors.GetAssetSize
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage
+import com.codingwithmitch.giffit.interactors.BuildGifInteractor
+import com.codingwithmitch.giffit.interactors.BuildGifInteractor.Companion.NO_BITMAPS_ERROR
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
 import com.codingwithmitch.giffit.util.buildBitmap
-import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.hamcrest.CoreMatchers
 import org.hamcrest.CoreMatchers.*
-import org.hamcrest.MatcherAssert
 import org.hamcrest.MatcherAssert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
-import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.mock
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows
-import java.io.ByteArrayInputStream
-import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class BuildGifTest {
+class BuildGifInteractorTest {
 
-    private lateinit var buildGif: BuildGif
+    private lateinit var buildGifInteractor: BuildGifInteractor
 
     private val cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication())
     private val versionProvider = RealVersionProvider()
-    private val saveGifToInternalStorage = SaveGifToInternalStorage(cacheProvider, versionProvider)
+    private val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(cacheProvider, versionProvider)
 
     // Build some dummy bitmaps to build a gif with
     private val bitmaps: List<Bitmap> by lazy {
@@ -50,7 +40,7 @@ class BuildGifTest {
 
     @Before
     fun init() {
-        buildGif = BuildGif(saveGifToInternalStorage)
+        buildGifInteractor = BuildGifInteractor(saveGifToInternalStorageInteractor)
     }
 
     @Test
@@ -58,7 +48,7 @@ class BuildGifTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        val emissions = buildGif.execute(
+        val emissions = buildGifInteractor.execute(
             contentResolver = contentResolver,
             bitmaps = bitmaps
         ).toList()
@@ -81,7 +71,7 @@ class BuildGifTest {
         val context = RuntimeEnvironment.getApplication()
         val contentResolver = context.contentResolver
 
-        val emissions = buildGif.execute(
+        val emissions = buildGifInteractor.execute(
             contentResolver = contentResolver,
             bitmaps = listOf() // empty list of bitmaps
         ).toList()
@@ -103,15 +93,15 @@ class BuildGifTest {
                 throw Exception("Can't save to cache or something who knows.")
             }
         }
-        val saveGifToInternalStorage = SaveGifToInternalStorage(
+        val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(
             cacheProvider = cacheProvider,
             versionProvider = fakeVersionProvider
         )
 
-        val buildGif = BuildGif(
-            saveGifToInternalStorage = saveGifToInternalStorage
+        val buildGifInteractor = BuildGifInteractor(
+            saveGifToInternalStorage = saveGifToInternalStorageInteractor
         )
-        val emissions = buildGif.execute(
+        val emissions = buildGifInteractor.execute(
             contentResolver = contentResolver,
             bitmaps = bitmaps
         ).toList()

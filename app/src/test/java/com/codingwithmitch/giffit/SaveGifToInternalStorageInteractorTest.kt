@@ -6,8 +6,8 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorage.Companion.SAVE_GIF_TO_INTERNAL_STORAGE_ERROR
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor.Companion.SAVE_GIF_TO_INTERNAL_STORAGE_ERROR
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -24,14 +24,14 @@ import java.io.FileNotFoundException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class SaveGifToInternalStorageTest {
+class SaveGifToInternalStorageInteractorTest {
 
-    private lateinit var saveGifToInternalStorage: SaveGifToInternalStorage
+    private lateinit var saveGifToInternalStorageInteractor: SaveGifToInternalStorageInteractor
     private val cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication())
 
     @Before
     fun init() {
-        saveGifToInternalStorage = SaveGifToInternalStorage(
+        saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(
             cacheProvider = cacheProvider,
             versionProvider = RealVersionProvider()
         )
@@ -46,7 +46,7 @@ class SaveGifToInternalStorageTest {
         val byteArray = buildBitmapByteArray(context.resources)
 
         // Execute the use-case
-        val emissions = saveGifToInternalStorage.execute(
+        val emissions = saveGifToInternalStorageInteractor.execute(
             contentResolver = contentResolver,
             bytes = byteArray
         ).toList()
@@ -71,7 +71,7 @@ class SaveGifToInternalStorageTest {
         val byteArray = buildBitmapByteArray(context.resources)
 
         // Execute the use-case
-        val emissions = saveGifToInternalStorage.execute(
+        val emissions = saveGifToInternalStorageInteractor.execute(
             contentResolver = mock {
                 // Force throw exception
                 on { openOutputStream(any()) } doThrow FileNotFoundException("Something is busted")
@@ -93,7 +93,7 @@ class SaveGifToInternalStorageTest {
         val byteArray = buildBitmapByteArray(context.resources)
 
         // Execute the use-case
-        val emissions = saveGifToInternalStorage.execute(
+        val emissions = saveGifToInternalStorageInteractor.execute(
             contentResolver = mock {
                 // Force throw exception
                 on { openOutputStream(any()) } doReturn null
