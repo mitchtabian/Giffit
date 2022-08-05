@@ -30,6 +30,7 @@ class ResizeGifInteractor(
         capturedBitmaps: List<Bitmap>,
         originalGifSize: Float,
         targetSize: Float,
+        bilinearFiltering: Boolean = true,
         discardCachedGif: (Uri) -> Unit,
     ): Flow<DataState<Uri>> = flow {
         var previousUri: Uri? = null
@@ -52,22 +53,21 @@ class ResizeGifInteractor(
                 for (bitmap in capturedBitmaps) {
                     val resizedBitmap = BitmapUtils.resizeBitmap(
                         bitmap = bitmap,
-                        sizePercentage = 1 - percentageLoss
+                        sizePercentage = 1 - percentageLoss,
+                        bilinearFiltering = bilinearFiltering
                     )
                     resizedBitmaps.add(resizedBitmap)
                 }
 
-                val uri = BuildGifInteractor.buildGifAndSaveToInternalStorage(
+                val result = BuildGifInteractor.buildGifAndSaveToInternalStorage(
                     contentResolver = contentResolver,
                     versionProvider = versionProvider,
                     cacheProvider = cacheProvider,
                     bitmaps = resizedBitmaps,
                 )
-                val newSize = GetAssetSizeInteractor.getAssetSize(
-                    contentResolver = contentResolver,
-                    uri = uri
-                )
-                progress = (originalGifSize - newSize.toFloat()) / (originalGifSize - targetSize)
+                val newSize = result.gifSize.toFloat()
+                val uri = result.uri
+                progress = (originalGifSize - newSize) / (originalGifSize - targetSize)
                 emit(Loading<Uri>(Active(progress)))
 
                 // Continue to next iteration

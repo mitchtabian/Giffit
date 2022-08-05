@@ -10,6 +10,7 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
+// TODO("Delete this???")
 /**
  * Interactor for getting the size (in bytes) from a [Uri].
  */
@@ -45,8 +46,6 @@ class GetAssetSizeInteractor {
             uri: Uri?,
         ): Int {
             check(uri != null) { "Null asset Uri." }
-            // Ignore warning here since we are surrounding in try/catch.
-            // If the warning bothers you, use runCatching {...}
             val inputStream = contentResolver.openInputStream(uri)
             if (inputStream != null) {
                 val size = inputStream.readBytes().size

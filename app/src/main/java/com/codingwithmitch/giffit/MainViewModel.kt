@@ -179,31 +179,31 @@ constructor(
         }
     }
 
-    private fun getGifSize(
-        contentResolver: ContentResolver,
-        uri: Uri?,
-    ) {
-        check(state.value is DisplayGif) { "getGifSize: Invalid state: ${state.value}" }
-        getAssetSizeInteractor.execute(
-            contentResolver = contentResolver,
-            uri = uri,
-        ).onEach { dataState ->
-            when(dataState) {
-                is DataState.Data -> {
-                    state.value = (state.value as DisplayGif).copy(
-                        originalGifSize = dataState.data ?: 0,
-                        adjustedBytes = dataState.data ?: 0
-                    )
-                }
-                is DataState.Loading -> {
-                    mainLoadingState.value = Standard(dataState.loadingState)
-                }
-                is DataState.Error -> {
-                    error.value = dataState.message
-                }
-            }
-        }.launchIn(ioScope)
-    }
+//    private fun getGifSize(
+//        contentResolver: ContentResolver,
+//        uri: Uri?,
+//    ) {
+//        check(state.value is DisplayGif) { "getGifSize: Invalid state: ${state.value}" }
+//        getAssetSizeInteractor.execute(
+//            contentResolver = contentResolver,
+//            uri = uri,
+//        ).onEach { dataState ->
+//            when(dataState) {
+//                is DataState.Data -> {
+//                    state.value = (state.value as DisplayGif).copy(
+//                        originalGifSize = dataState.data ?: 0,
+//                        adjustedBytes = dataState.data ?: 0
+//                    )
+//                }
+//                is DataState.Loading -> {
+//                    mainLoadingState.value = Standard(dataState.loadingState)
+//                }
+//                is DataState.Error -> {
+//                    error.value = dataState.message
+//                }
+//            }
+//        }.launchIn(ioScope)
+//    }
 
    fun runBitmapCaptureJob(
        contentResolver: ContentResolver,
@@ -279,20 +279,17 @@ constructor(
             when(dataState) {
                 is DataState.Data -> {
                     (state.value as DisplayBackgroundAsset).let {
+                        val gifSize = dataState.data?.gifSize ?: 0
                         state.value = DisplayGif(
-                            gifUri = dataState.data,
+                            gifUri = dataState.data?.uri,
                             resizedGifUri = null,
-                            originalGifSize = 0,
-                            adjustedBytes = 0,
+                            originalGifSize = gifSize,
+                            adjustedBytes = gifSize,
                             sizePercentage = 100,
                             backgroundAssetUri = it.backgroundAssetUri,
                             capturedBitmaps = it.capturedBitmaps
                         )
                     }
-                    getGifSize(
-                        contentResolver = contentResolver,
-                        uri = dataState.data
-                    )
                 }
                 is DataState.Error -> {
                     error.value = dataState.message

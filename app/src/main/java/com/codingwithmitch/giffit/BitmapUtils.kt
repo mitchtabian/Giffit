@@ -13,9 +13,14 @@ object BitmapUtils {
         return writePermission == PackageManager.PERMISSION_GRANTED && readPermission == PackageManager.PERMISSION_GRANTED
     }
 
-    fun resizeBitmap(bitmap: Bitmap, sizePercentage: Float): Bitmap {
+    /**
+     * @param bilinearFiltering: For some reason bilinear-filtering does some weird stuff in unit tests.
+     *  It actually increases the size of the original bitmap. So I added it as a param so we can disable
+     *  for unit tests.
+     */
+    fun resizeBitmap(bitmap: Bitmap, sizePercentage: Float, bilinearFiltering: Boolean): Bitmap {
         val targetWidth = (bitmap.width * sizePercentage).toInt()
         val targetHeight = (bitmap.height * sizePercentage).toInt()
-        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, bilinearFiltering)
     }
 }

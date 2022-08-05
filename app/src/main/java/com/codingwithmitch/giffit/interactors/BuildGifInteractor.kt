@@ -24,19 +24,24 @@ class BuildGifInteractor(
     private val versionProvider: VersionProvider
 ) {
 
+    data class BuildGifResult(
+        val uri: Uri,
+        val gifSize: Int,
+    )
+
     fun execute(
         contentResolver: ContentResolver,
         bitmaps: List<Bitmap>,
-    ): Flow<DataState<Uri>> =  flow {
+    ): Flow<DataState<BuildGifResult>> =  flow {
         emit(Loading(Active()))
         try {
-            val uri = buildGifAndSaveToInternalStorage(
+            val result = buildGifAndSaveToInternalStorage(
                 contentResolver = contentResolver,
                 versionProvider = versionProvider,
                 cacheProvider = cacheProvider,
                 bitmaps = bitmaps
             )
-            emit(Data(uri))
+            emit(Data(result))
         } catch (e: Exception) {
             Log.e(Constants.TAG, "GetAssetSize: ", e)
             emit(Error(e.message ?: BUILD_GIF_ERROR))
@@ -50,14 +55,14 @@ class BuildGifInteractor(
 
         /**
          * Build a Gif from a list of [Bitmap]'s and save to internal storage in [CacheProvider.gifCache].
-         * Return the [Uri] of the new Gif.
+         * Return a [BuildGifResult] containing the [Uri] and the Size of the new [Bitmap].
          */
         fun buildGifAndSaveToInternalStorage(
             contentResolver: ContentResolver,
             versionProvider: VersionProvider,
             cacheProvider: CacheProvider,
             bitmaps: List<Bitmap>
-        ): Uri {
+        ): BuildGifResult {
             check(bitmaps.isNotEmpty()) { NO_BITMAPS_ERROR }
             val writer = AnimatedGIFWriter(true)
             val bos = ByteArrayOutputStream()
@@ -67,12 +72,13 @@ class BuildGifInteractor(
             }
             writer.finishWrite(bos)
             val byteArray = bos.toByteArray()
-            return SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
+            val uri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
                 contentResolver = contentResolver,
                 bytes = byteArray,
                 versionProvider = versionProvider,
                 cacheProvider = cacheProvider
             )
+            return BuildGifResult(uri, byteArray.size)
         }
     }
 }
