@@ -8,8 +8,8 @@ import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
 import com.codingwithmitch.giffit.interactors.GetAssetSizeInteractor
 import com.codingwithmitch.giffit.interactors.GetAssetSizeInteractor.Companion.GET_ASSET_SIZE_ERROR
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
-import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -49,11 +49,11 @@ class GetAssetSizeInteractorTest {
         // Save to cache.
         // Note: Technically it will save as a gif but it doesn't matter for the test.
         val cacheProvider = RealCacheProvider(context)
-        val uri = saveBytesToInternalStorage(
-            cacheProvider = cacheProvider,
-            versionProvider = RealVersionProvider(),
+        val uri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
             contentResolver = contentResolver,
-            bytes = byteArray
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = RealVersionProvider()
         )
         val file = uri.toFile()
 

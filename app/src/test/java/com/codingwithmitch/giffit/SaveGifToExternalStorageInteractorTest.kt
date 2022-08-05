@@ -7,8 +7,8 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor
+import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
-import com.codingwithmitch.giffit.util.saveBytesToInternalStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -47,11 +47,11 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = saveBytesToInternalStorage(
-            cacheProvider = cacheProvider,
-            versionProvider = versionProvider,
+        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
             contentResolver = contentResolver,
-            bytes = byteArray
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = versionProvider
         )
 
         // Create mock checkFilePermissions so we can verify it's never called
@@ -106,11 +106,11 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = saveBytesToInternalStorage(
-            cacheProvider = cacheProvider,
-            versionProvider = versionProvider,
+        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
             contentResolver = contentResolver,
-            bytes = byteArray
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = RealVersionProvider()
         )
 
         // User has accepted read/write permission to external storage
@@ -168,11 +168,11 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = saveBytesToInternalStorage(
-            cacheProvider = cacheProvider,
-            versionProvider = versionProvider,
+        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
             contentResolver = contentResolver,
-            bytes = byteArray
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = RealVersionProvider()
         )
 
         // User has NOT accepted read/write permission to external storage
@@ -221,11 +221,11 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = saveBytesToInternalStorage(
-            cacheProvider = cacheProvider,
-            versionProvider = versionProvider,
+        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
             contentResolver = contentResolver,
-            bytes = byteArray
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = RealVersionProvider()
         )
 
         // Create mock checkFilePermissions so we can verify it's never called
@@ -274,12 +274,12 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = saveBytesToInternalStorage(
-            cacheProvider = cacheProvider,
-            versionProvider = versionProvider,
-            contentResolver = contentResolver,
-            bytes = byteArray
-        )
+        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
+        contentResolver = contentResolver,
+        bytes = byteArray,
+        cacheProvider = cacheProvider,
+        versionProvider = versionProvider
+    )
 
         // Create mock checkFilePermissions so we can verify it's never called
         val checkFilePermissions: () -> Boolean = mock {

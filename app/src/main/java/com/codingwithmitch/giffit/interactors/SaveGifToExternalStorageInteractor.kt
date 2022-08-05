@@ -37,26 +37,30 @@ class SaveGifToExternalStorageInteractor(
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
     ): Flow<DataState<Uri>> = flow {
-        emit(Loading(Active()))
-        when {
-            // If API >= 29 we can use scoped storage and don't require permission to save images.
-            versionProvider.provideVersion() >= Build.VERSION_CODES.Q -> {
-                val uri = saveGifToScopedStorage(
-                    contentResolver = contentResolver,
-                    cachedUri = cachedUri
-                )
-                emit(Data(uri))
+        try {
+            emit(Loading(Active()))
+            when {
+                // If API >= 29 we can use scoped storage and don't require permission to save images.
+                versionProvider.provideVersion() >= Build.VERSION_CODES.Q -> {
+                    val uri = saveGifToScopedStorage(
+                        contentResolver = contentResolver,
+                        cachedUri = cachedUri
+                    )
+                    emit(Data(uri))
+                }
+                // Scoped storage doesn't exist before Android 29 so need to check permissions
+                checkFilePermissions() -> {
+                    val uri = saveGifToInternalStorage(
+                        contentResolver = contentResolver,
+                        cachedUri = cachedUri
+                    )
+                    emit(Data(uri))
+                }
+                // If we made it this far, read/write permission has not been accepted.
+                else -> launchPermissionRequest()
             }
-            // Scoped storage doesn't exist before Android 29 so need to check permissions
-            checkFilePermissions() -> {
-                val uri = saveGifToInternalStorage(
-                    contentResolver = contentResolver,
-                    cachedUri = cachedUri
-                )
-                emit(Data(uri))
-            }
-            // If we made it this far, read/write permission has not been accepted.
-            else -> launchPermissionRequest()
+        } catch (e: Exception) {
+            emit(Error(e.message ?: SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
         }
         emit(Loading(Idle))
     }

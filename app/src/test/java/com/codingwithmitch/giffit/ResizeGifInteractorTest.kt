@@ -24,15 +24,8 @@ import org.robolectric.RuntimeEnvironment
 class ResizeGifInteractorTest {
 
     private lateinit var resizeGifInteractor: ResizeGifInteractor
-
-    private val getAssetSizeInteractor = GetAssetSizeInteractor()
-
-    private val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(
-        cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication()),
-        versionProvider = RealVersionProvider()
-    )
-
-    private val buildGifInteractor = BuildGifInteractor(saveGifToInternalStorageInteractor)
+    private val cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication())
+    private val versionProvider = RealVersionProvider()
 
     // Build some dummy bitmaps to build a gif with.
     private val bitmaps: List<Bitmap> by lazy {
@@ -46,8 +39,8 @@ class ResizeGifInteractorTest {
     @Before
     fun init() {
         resizeGifInteractor = ResizeGifInteractor(
-            buildGif = buildGifInteractor,
-            getAssetSize = getAssetSizeInteractor
+            cacheProvider = cacheProvider,
+            versionProvider = versionProvider
         )
     }
 
@@ -80,8 +73,6 @@ class ResizeGifInteractorTest {
             capturedBitmaps = bitmaps,
             originalGifSize = originalGifSize.toFloat(),
             targetSize = originalGifSize.toFloat() / 2,
-            previousUri = null,
-            percentageLoss = ResizeGifInteractor.percentageLossIncrementSize,
             discardCachedGif = ::discardCachedGif
         ).toList()
 

@@ -27,7 +27,6 @@ class BuildGifInteractorTest {
 
     private val cacheProvider = RealCacheProvider(RuntimeEnvironment.getApplication())
     private val versionProvider = RealVersionProvider()
-    private val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(cacheProvider, versionProvider)
 
     // Build some dummy bitmaps to build a gif with
     private val bitmaps: List<Bitmap> by lazy {
@@ -40,7 +39,10 @@ class BuildGifInteractorTest {
 
     @Before
     fun init() {
-        buildGifInteractor = BuildGifInteractor(saveGifToInternalStorageInteractor)
+        buildGifInteractor = BuildGifInteractor(
+            cacheProvider = cacheProvider,
+            versionProvider = versionProvider
+        )
     }
 
     @Test
@@ -55,15 +57,15 @@ class BuildGifInteractorTest {
 
         // Confirm the gif is saved to the cache directory
         val expectedFilePath = cacheProvider.gifCache().path
-        val returnedUri = (emissions[2] as DataState.Data<Uri>).data
+        val returnedUri = (emissions[1] as DataState.Data<Uri>).data
         val actualFilePath = returnedUri?.toFile()?.path
         assertThat(actualFilePath, containsString(expectedFilePath))
         assertThat(cacheProvider.gifCache().listFiles().size, equalTo(1))
 
         // Confirm the other emissions are correct.
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[3], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+        assertThat(emissions[1], equalTo(DataState.Data<Uri>(returnedUri)))
+        assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
     }
 
     @Test
@@ -93,13 +95,10 @@ class BuildGifInteractorTest {
                 throw Exception("Can't save to cache or something who knows.")
             }
         }
-        val saveGifToInternalStorageInteractor = SaveGifToInternalStorageInteractor(
-            cacheProvider = cacheProvider,
-            versionProvider = fakeVersionProvider
-        )
 
         val buildGifInteractor = BuildGifInteractor(
-            saveGifToInternalStorage = saveGifToInternalStorageInteractor
+            cacheProvider = cacheProvider,
+            versionProvider = fakeVersionProvider
         )
         val emissions = buildGifInteractor.execute(
             contentResolver = contentResolver,
@@ -108,9 +107,8 @@ class BuildGifInteractorTest {
 
         // Confirm the other emissions are correct.
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[2], equalTo(DataState.Error<Uri>("Can't save to cache or something who knows.")))
-        assertThat(emissions[3], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+        assertThat(emissions[1], equalTo(DataState.Error<Uri>("Can't save to cache or something who knows.")))
+        assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
     }
 }
 
