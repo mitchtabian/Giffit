@@ -3,16 +3,14 @@ package com.codingwithmitch.giffit.domain
 import android.content.Context
 import java.io.File
 
-/**
- * TODO("ktdoc")
- */
 interface CacheProvider {
+
+    /**
+     * Provides the directory where cached gif files are kept.
+     */
     fun gifCache(): File
 }
 
-/**
- * TODO("ktdoc")
- */
 class RealCacheProvider
 constructor(
     private val context: Context

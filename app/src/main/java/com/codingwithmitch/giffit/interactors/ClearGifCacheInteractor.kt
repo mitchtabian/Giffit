@@ -35,7 +35,7 @@ constructor(
         /**
          * Clears all the cached files from the path provided via [CacheProvider].
          */
-        fun clearGifCache(
+        private fun clearGifCache(
             cacheProvider: CacheProvider
         ) {
             val internalStorageDirectory = cacheProvider.gifCache()

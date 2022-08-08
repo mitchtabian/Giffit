@@ -21,7 +21,7 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
-import com.codingwithmitch.giffit.MainViewModel.MainState.*
+import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider

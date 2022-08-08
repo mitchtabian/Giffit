@@ -93,6 +93,6 @@ class ResizeGifInteractor(
          * How much the gif gets resized after each iteration.
          * 0.05 = 5%.
          */
-        const val percentageLossIncrementSize = 0.05f
+        private const val percentageLossIncrementSize = 0.05f
     }
 }

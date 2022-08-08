@@ -17,7 +17,7 @@ sealed class DataState<T> {
         sealed class LoadingState {
 
             /**
-             * Loading state with optional progress.
+             * Active loading state with optional progress.
              */
             data class Active(
                 val progress: Float? = 0f,

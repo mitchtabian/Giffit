@@ -7,6 +7,9 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.TimeZone
 
+/**
+ * Utility class for building a file name.
+ */
 object FileNameBuilder {
 
     /**
