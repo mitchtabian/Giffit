@@ -2,6 +2,11 @@ buildscript {
     ext {
         compose_version = '1.1.0-beta01'
     }
+    repositories {
+    }
+    dependencies {
+        classpath 'com.google.dagger:hilt-android-gradle-plugin:2.38.1'
+    }
 }
 plugins {
     id 'com.android.application' version '7.2.1' apply false

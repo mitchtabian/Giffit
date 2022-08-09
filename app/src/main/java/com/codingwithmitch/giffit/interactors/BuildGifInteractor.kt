@@ -14,12 +14,15 @@ import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.ByteArrayOutputStream
+import javax.inject.Inject
 
 /**
  * Interactor for building a gif given a list of [Bitmap]'s. The resulting gif is saved it to internal storage.
  * We do not need read/write permission because saving to the cache does not require it.
  */
-class BuildGifInteractor(
+class BuildGifInteractor
+@Inject
+constructor(
     private val cacheProvider: CacheProvider,
     private val versionProvider: VersionProvider
 ) {

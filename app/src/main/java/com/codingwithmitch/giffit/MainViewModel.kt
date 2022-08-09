@@ -12,35 +12,31 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.codingwithmitch.giffit.MainLoadingState.*
 import com.codingwithmitch.giffit.MainState.*
-import com.codingwithmitch.giffit.domain.CacheProvider
+import com.codingwithmitch.giffit.di.IO
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_SUCCESS
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
 import java.io.File
+import javax.inject.Inject
 
+@HiltViewModel
 class MainViewModel
+@Inject
 constructor(
-    cacheProvider: CacheProvider,
-    versionProvider: VersionProvider
+    @IO private val ioDispatcher: CoroutineDispatcher,
+    private val captureBitmapsInteractor: CaptureBitmapsInteractor,
+    private val saveGifToExternalStorageInteractor: SaveGifToExternalStorageInteractor,
+    private val buildGifInteractor: BuildGifInteractor,
+    private val resizeGifInteractor: ResizeGifInteractor,
+    private val clearGifCacheInteractor: ClearGifCacheInteractor,
 ): ViewModel() {
-
-    private val ioDispatcher = IO
-
-    private val captureBitmapsInteractor = CaptureBitmapsInteractor()
-    private val saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(versionProvider)
-    private val buildGifInteractor = BuildGifInteractor(cacheProvider, versionProvider)
-    private val resizeGifInteractor = ResizeGifInteractor(
-        versionProvider = versionProvider,
-        cacheProvider = cacheProvider
-    )
-    private val clearGifCacheInteractor = ClearGifCacheInteractor(cacheProvider)
 
     val state: MutableState<MainState> = mutableStateOf(Initial)
     val mainLoadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(Idle))

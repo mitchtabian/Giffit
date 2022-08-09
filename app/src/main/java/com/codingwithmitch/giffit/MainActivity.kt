@@ -9,37 +9,33 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
-import coil.decode.GifDecoder
-import coil.decode.ImageDecoderDecoder
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.MainState.*
-import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import com.codingwithmitch.giffit.domain.RealCacheProvider
-import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.ui.*
 import com.codingwithmitch.giffit.ui.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import javax.inject.Inject
 
 @OptIn(ExperimentalMaterialApi::class)
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private lateinit var imageLoader: ImageLoader
-
-    private lateinit var cacheProvider: CacheProvider
-    private lateinit var versionProvider: VersionProvider
+    @Inject
+    lateinit var imageLoader: ImageLoader
 
     private fun launchPermissionRequest() {
         externalStoragePermissionRequest.launch(
@@ -92,38 +88,17 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private lateinit var viewModel: MainViewModel
+    private val viewModel by viewModels<MainViewModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!::cacheProvider.isInitialized) {
-            cacheProvider = RealCacheProvider(this@MainActivity)
-        }
-        if (!::versionProvider.isInitialized) {
-            versionProvider = RealVersionProvider()
-        }
-        if (!::viewModel.isInitialized) {
-            viewModel = MainViewModel(cacheProvider, versionProvider)
-        }
-
+        // TODO("Audit this. Correct way to observe this?")
         viewModel.toastEventRelay.onEach { message ->
             if (message != null) {
                 Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
             }
         }.launchIn(lifecycleScope)
-
-        if (!::imageLoader.isInitialized) {
-            imageLoader = ImageLoader.Builder(this)
-                .components {
-                    if (SDK_INT >= 28) {
-                        add(ImageDecoderDecoder.Factory())
-                    } else {
-                        add(GifDecoder.Factory())
-                    }
-                }
-                .build()
-        }
 
         // Scoped storage doesn't exist before Android 29 so need to check permissions
         if (SDK_INT < Build.VERSION_CODES.Q) {

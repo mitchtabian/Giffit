@@ -15,6 +15,7 @@ import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
 
 /**
  * Interactor for saving a cached [Uri] to external storage. A cached [Uri] is defined as a [Uri] that is
@@ -26,7 +27,9 @@ import kotlinx.coroutines.flow.flow
  *  (2) On API 28- you must ask for read/write permissions.
  *   This pathway is via [saveGifToInternalStorage].
  */
-class SaveGifToExternalStorageInteractor(
+class SaveGifToExternalStorageInteractor
+@Inject
+constructor(
     private val versionProvider: VersionProvider,
 ) {
 

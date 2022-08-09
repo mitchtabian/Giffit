@@ -12,6 +12,7 @@ import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.flow.*
+import javax.inject.Inject
 
 /**
  * Interactor for resizing a gif.
@@ -20,7 +21,9 @@ import kotlinx.coroutines.flow.*
  * call [Bitmap.createScaledBitmap] since you can't target a specific size. The only way
  * to do it accurately is to iteratively resize until you reach the target size.
  */
-class ResizeGifInteractor(
+class ResizeGifInteractor
+@Inject
+constructor(
     private val versionProvider: VersionProvider,
     private val cacheProvider: CacheProvider,
 ) {

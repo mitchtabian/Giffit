@@ -8,11 +8,13 @@ import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
 
 /**
  * Interactor for clearing all the cached files from the path provided via [CacheProvider].
  */
 class ClearGifCacheInteractor
+@Inject
 constructor(
     private val cacheProvider: CacheProvider
 ){

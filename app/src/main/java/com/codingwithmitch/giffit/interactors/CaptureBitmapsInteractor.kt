@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
@@ -30,7 +31,9 @@ import kotlin.math.roundToInt
  * We must use [PixelCopy] for API level 24 (N) and above.
  * This makes things a little annoying because [PixelCopy.request] has a callback we need to use.
  */
-class CaptureBitmapsInteractor {
+class CaptureBitmapsInteractor
+@Inject
+constructor(){
 
     private sealed class PixelCopyJobState {
         data class Done(

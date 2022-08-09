@@ -14,11 +14,14 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.File
+import javax.inject.Inject
 
 /**
  * Interactor for saving a gif (from [ByteArray]) to internal storage.
  */
-class SaveGifToInternalStorageInteractor(
+class SaveGifToInternalStorageInteractor
+@Inject
+constructor(
     private val cacheProvider: CacheProvider,
     private val versionProvider: VersionProvider
 ){
