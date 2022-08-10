@@ -12,6 +12,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
@@ -94,9 +97,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // TODO("Audit this. Correct way to observe this?")
-        viewModel.toastEventRelay.onEach { message ->
-            if (message != null) {
-                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+        viewModel.toastEventRelay.onEach { toastEvent ->
+            if (toastEvent != null) {
+                Toast.makeText(this@MainActivity, toastEvent.message, Toast.LENGTH_LONG).show()
             }
         }.launchIn(lifecycleScope)
 
@@ -187,6 +190,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     LoadingUI(mainLoadingState = mainLoadingState)
+                    val errorEvents by viewModel.errorRelay.collectAsState()
+                    ErrorEventHandler(
+                        errorEvents = errorEvents,
+                        onClearErrorEvents = viewModel::clearErrorEvents
+                    )
                 }
             }
         }

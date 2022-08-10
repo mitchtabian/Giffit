@@ -21,9 +21,9 @@ import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
-import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
 import java.io.File
+import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel
@@ -40,13 +40,10 @@ constructor(
 
     val state: MutableState<MainState> = mutableStateOf(Initial)
     val mainLoadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(Idle))
-    val error: MutableState<String?> = mutableStateOf(null)
-    private val _toastEventRelay: MutableStateFlow<String?> = MutableStateFlow(null)
-    val toastEventRelay: Flow<String?> get() = _toastEventRelay
-
-    private fun showToast(message: String) {
-        _toastEventRelay.tryEmit(message)
-    }
+    private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
+    val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
+    private val _toastEventRelay: MutableStateFlow<ToastEvent?> = MutableStateFlow(null)
+    val toastEventRelay: StateFlow<ToastEvent?> get() = _toastEventRelay
 
     private fun clearCachedFiles() {
         clearGifCacheInteractor.execute().onEach { _ ->
@@ -77,7 +74,12 @@ constructor(
                     mainLoadingState.value = Standard(dataState.loadingState)
                 }
                 is DataState.Error -> {
-                    error.value = dataState.message
+                    publishErrorEvent(
+                        ErrorEvent(
+                            id = UUID.randomUUID().toString(),
+                            message = dataState.message
+                        )
+                    )
                 }
             }
         }.onCompletion {
@@ -100,9 +102,6 @@ constructor(
         (state.value as DisplayGif).let {
             // Calculate the target size of the resulting gif.
             val targetSize = it.originalGifSize * it.sizePercentage.toFloat() / 100
-            // Need to be able to cancel the previous resize job.
-            val job = Job()
-            val scope = CoroutineScope(IO + job)
             resizeGifInteractor.execute(
                 contentResolver = contentResolver,
                 capturedBitmaps = it.capturedBitmaps,
@@ -122,12 +121,17 @@ constructor(
                         )
                     }
                     is DataState.Error -> {
-                        error.value = dataState.message
+                        publishErrorEvent(
+                            ErrorEvent(
+                                id = UUID.randomUUID().toString(),
+                                message = dataState.message
+                            )
+                        )
                     }
                 }
             }.onCompletion {
                 mainLoadingState.value = Standard(Idle)
-            }.flowOn(ioDispatcher).launchIn(scope)
+            }.flowOn(ioDispatcher).launchIn(viewModelScope)
         }
     }
 
@@ -170,7 +174,12 @@ constructor(
                    // Otherwise it will keep trying to capture bitmaps and failing over and over.
                    bitmapCaptureJob.cancel(CAPTURE_BITMAP_ERROR)
                    mainLoadingState.value = None
-                   error.value = dataState.message
+                   publishErrorEvent(
+                       ErrorEvent(
+                           id = UUID.randomUUID().toString(),
+                           message = dataState.message
+                       )
+                   )
                }
                is DataState.Loading -> {
                    mainLoadingState.value = BitmapCapture(dataState.loadingState)
@@ -188,7 +197,12 @@ constructor(
                    if (throwable.message == CAPTURE_BITMAP_SUCCESS) {
                        onSuccess()
                    } else { // If an error occurs, do not try to build the gif.
-                       error.value = throwable.message ?: CAPTURE_BITMAP_ERROR
+                       publishErrorEvent(
+                           ErrorEvent(
+                               id = UUID.randomUUID().toString(),
+                               message = throwable.message ?: CAPTURE_BITMAP_ERROR
+                           )
+                       )
                    }
                }
            }
@@ -222,7 +236,12 @@ constructor(
                     }
                 }
                 is DataState.Error -> {
-                    error.value = dataState.message
+                    publishErrorEvent(
+                        ErrorEvent(
+                            id = UUID.randomUUID().toString(),
+                            message = dataState.message
+                        )
+                    )
                 }
                 is DataState.Loading -> {
                     mainLoadingState.value = Standard(dataState.loadingState)
@@ -266,6 +285,25 @@ constructor(
         check(state.value is DisplayGif) { "updateSizePercentage: Invalid state: ${state.value}" }
         state.value = (state.value as DisplayGif).copy(
             sizePercentage = sizePercentage
+        )
+    }
+
+    private fun publishErrorEvent(errorEvent: ErrorEvent) {
+        val current = _errorRelay.value.toMutableSet()
+        current.add(errorEvent)
+        _errorRelay.value = current
+    }
+
+    fun clearErrorEvents() {
+        _errorRelay.value = setOf()
+    }
+
+    private fun showToast(message: String) {
+        _toastEventRelay.tryEmit(
+            ToastEvent(
+                id = UUID.randomUUID().toString(),
+                message = message
+            )
         )
     }
 

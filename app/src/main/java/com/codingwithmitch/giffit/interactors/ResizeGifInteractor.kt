@@ -12,6 +12,7 @@ import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.flow.*
+import java.util.*
 import javax.inject.Inject
 
 /**
@@ -36,6 +37,21 @@ constructor(
         bilinearFiltering: Boolean = true,
         discardCachedGif: (Uri) -> Unit,
     ): Flow<DataState<Uri>> = flow {
+//        emit(
+//            Error(
+//                "Oppsie poopsie ${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}" +
+//                        "${UUID.randomUUID()}"
+//            )
+//        )
         var previousUri: Uri? = null
         var progress: Float
         var percentageLoss = percentageLossIncrementSize
