@@ -6,8 +6,8 @@ import android.provider.MediaStore
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
+import com.codingwithmitch.giffit.interactors.BuildGifInteractor.Companion.saveGifToInternalStorage
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
 import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -47,7 +47,7 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
+        val cachedUri = saveGifToInternalStorage(
             contentResolver = contentResolver,
             bytes = byteArray,
             cacheProvider = cacheProvider,
@@ -106,7 +106,7 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
+        val cachedUri = saveGifToInternalStorage(
             contentResolver = contentResolver,
             bytes = byteArray,
             cacheProvider = cacheProvider,
@@ -168,7 +168,7 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
+        val cachedUri = saveGifToInternalStorage(
             contentResolver = contentResolver,
             bytes = byteArray,
             cacheProvider = cacheProvider,
@@ -221,7 +221,7 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
+        val cachedUri = saveGifToInternalStorage(
             contentResolver = contentResolver,
             bytes = byteArray,
             cacheProvider = cacheProvider,
@@ -274,12 +274,12 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Save bitmap to internal storage
         val cacheProvider = RealCacheProvider(context)
-        val cachedUri = SaveGifToInternalStorageInteractor.saveGifToInternalStorage(
-        contentResolver = contentResolver,
-        bytes = byteArray,
-        cacheProvider = cacheProvider,
-        versionProvider = versionProvider
-    )
+        val cachedUri = saveGifToInternalStorage(
+            contentResolver = contentResolver,
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = versionProvider
+        )
 
         // Create mock checkFilePermissions so we can verify it's never called
         val checkFilePermissions: () -> Boolean = mock {

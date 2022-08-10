@@ -13,7 +13,6 @@ import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
@@ -25,7 +24,7 @@ import javax.inject.Inject
  * (1) On API 29 + you do not need permissions to write/read to internal storage (Scoped Storage).
  *   This pathway is via [saveGifToScopedStorage].
  *  (2) On API 28- you must ask for read/write permissions.
- *   This pathway is via [saveGifToInternalStorage].
+ *   This pathway is via [saveGifToExternalStorage].
  */
 class SaveGifToExternalStorageInteractor
 @Inject
@@ -53,7 +52,7 @@ constructor(
                 }
                 // Scoped storage doesn't exist before Android 29 so need to check permissions
                 checkFilePermissions() -> {
-                    val uri = saveGifToInternalStorage(
+                    val uri = saveGifToExternalStorage(
                         contentResolver = contentResolver,
                         cachedUri = cachedUri
                     )
@@ -83,9 +82,9 @@ constructor(
         }
 
         /**
-         * Save a gif [Uri] to internal storage.
+         * Save a gif [Uri] to external storage without scoped storage.
          */
-        fun saveGifToInternalStorage(
+        fun saveGifToExternalStorage(
             contentResolver: ContentResolver,
             cachedUri: Uri,
         ): Uri {

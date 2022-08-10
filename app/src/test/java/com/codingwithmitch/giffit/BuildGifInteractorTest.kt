@@ -6,8 +6,9 @@ import androidx.core.net.toFile
 import com.codingwithmitch.giffit.domain.*
 import com.codingwithmitch.giffit.interactors.BuildGifInteractor
 import com.codingwithmitch.giffit.interactors.BuildGifInteractor.Companion.NO_BITMAPS_ERROR
-import com.codingwithmitch.giffit.interactors.SaveGifToInternalStorageInteractor
+import com.codingwithmitch.giffit.interactors.BuildGifInteractor.Companion.saveGifToInternalStorage
 import com.codingwithmitch.giffit.util.buildBitmap
+import com.codingwithmitch.giffit.util.buildBitmapByteArray
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -16,8 +17,10 @@ import org.hamcrest.MatcherAssert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.mock
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.io.FileNotFoundException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -57,14 +60,13 @@ class BuildGifInteractorTest {
 
         // Confirm the gif is saved to the cache directory
         val expectedFilePath = cacheProvider.gifCache().path
-        val returnedUri = (emissions[1] as DataState.Data<Uri>).data
+        val returnedUri = (emissions[1] as DataState.Data<BuildGifInteractor.BuildGifResult>).data?.uri
         val actualFilePath = returnedUri?.toFile()?.path
         assertThat(actualFilePath, containsString(expectedFilePath))
         assertThat(cacheProvider.gifCache().listFiles().size, equalTo(1))
 
         // Confirm the other emissions are correct.
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Data<Uri>(returnedUri)))
         assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
     }
 
@@ -109,6 +111,28 @@ class BuildGifInteractorTest {
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
         assertThat(emissions[1], equalTo(DataState.Error<Uri>("Can't save to cache or something who knows.")))
         assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+    }
+
+    @Test
+    fun verifyBytesAreSavedToInternalStorage() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val contentResolver = context.contentResolver
+
+        // Create a Bitmap
+        val byteArray = buildBitmapByteArray(context.resources)
+
+        // Execute the use-case
+        val uri = saveGifToInternalStorage(
+            contentResolver = contentResolver,
+            bytes = byteArray,
+            cacheProvider = cacheProvider,
+            versionProvider = versionProvider
+        )
+        val file = uri.toFile()
+
+        // Confirm the file exists in the cache
+        assertThat(cacheProvider.gifCache().listFiles().size, equalTo(1))
+        assertThat(cacheProvider.gifCache().listFiles()[0].name, equalTo(file.name))
     }
 }
 
