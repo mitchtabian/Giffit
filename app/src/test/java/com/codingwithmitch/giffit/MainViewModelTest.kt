@@ -2,10 +2,10 @@ package com.codingwithmitch.giffit
 
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.interactors.BuildGifInteractor
-import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor
+import com.codingwithmitch.giffit.interactors.*
 import kotlinx.coroutines.Dispatchers.Main
 import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -23,17 +23,35 @@ class MainViewModelTest {
         cacheProvider = cacheProvider,
         versionProvider = versionProvider
     )
+    private val resizeGifInteractor = ResizeGifInteractor(
+        cacheProvider = cacheProvider,
+        versionProvider = versionProvider
+    )
+    private val clearGifCacheInteractor = ClearGifCacheInteractor(
+        cacheProvider = cacheProvider
+    )
+    private val captureBitmapsInteractor = CaptureBitmapsInteractor()
 
-//    @Before
-//    fun init() {
-//        mainViewModel = MainViewModel(
-//            ioDispatcher = Main, // It's a test so just do everything on main
-//            saveGifToExternalStorageInteractor = saveGifToExternalStorageInteractor,
-//            buildGifInteractor = buildGifInteractor,
-//
-//        )
-//    }
+    @Before
+    fun init() {
+        mainViewModel = MainViewModel(
+            ioDispatcher = Main, // It's a test so just do everything on main
+            saveGifToExternalStorageInteractor = saveGifToExternalStorageInteractor,
+            buildGifInteractor = buildGifInteractor,
+            resizeGifInteractor = resizeGifInteractor,
+            clearGifCacheInteractor = clearGifCacheInteractor,
+            captureBitmapsInteractor = captureBitmapsInteractor
+        )
+    }
+
+    @Test
+    fun `thingy`() {
+
+    }
 }
+
+
+
 
 
 
