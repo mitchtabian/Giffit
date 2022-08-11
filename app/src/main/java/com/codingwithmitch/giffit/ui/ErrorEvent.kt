@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.ui
 
 /**
  * Event for modeling error data.

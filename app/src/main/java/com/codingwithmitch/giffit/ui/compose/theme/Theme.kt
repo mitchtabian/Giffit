@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui.theme
+package com.codingwithmitch.giffit.ui.compose.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.MaterialTheme

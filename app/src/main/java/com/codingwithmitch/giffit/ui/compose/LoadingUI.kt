@@ -13,8 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.codingwithmitch.giffit.MainLoadingState
-import com.codingwithmitch.giffit.MainViewModel
 import com.codingwithmitch.giffit.domain.DataState
 
 @Composable

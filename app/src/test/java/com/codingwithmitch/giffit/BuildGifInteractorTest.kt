@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.core.net.toFile
 import com.codingwithmitch.giffit.domain.*
+import com.codingwithmitch.giffit.interactors.BuildGif
+import com.codingwithmitch.giffit.interactors.BuildGif.*
 import com.codingwithmitch.giffit.interactors.BuildGifInteractor
 import com.codingwithmitch.giffit.interactors.BuildGifInteractor.Companion.NO_BITMAPS_ERROR
 import com.codingwithmitch.giffit.interactors.BuildGifInteractor.Companion.saveGifToInternalStorage
@@ -60,7 +62,7 @@ class BuildGifInteractorTest {
 
         // Confirm the gif is saved to the cache directory
         val expectedFilePath = cacheProvider.gifCache().path
-        val returnedUri = (emissions[1] as DataState.Data<BuildGifInteractor.BuildGifResult>).data?.uri
+        val returnedUri = (emissions[1] as DataState.Data<BuildGifResult>).data?.uri
         val actualFilePath = returnedUri?.toFile()?.path
         assertThat(actualFilePath, containsString(expectedFilePath))
         assertThat(cacheProvider.gifCache().listFiles().size, equalTo(1))

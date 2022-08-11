@@ -15,6 +15,10 @@ import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +27,24 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
+
+interface CaptureBitmaps {
+
+    fun execute(
+        capturingViewBounds: Rect?,
+        window: Window,
+        view: View?,
+    ): Flow<DataState<List<Bitmap>>>
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class CaptureBitmapsModule {
+    @Binds
+    abstract fun provideCaptureBitmaps(
+        captureBitmaps: CaptureBitmapsInteractor
+    ): CaptureBitmaps
+}
 
 /**
  * Interactor for capturing a list of bitmaps by screenshotting the device every [CAPTURE_INTERVAL_MS].
@@ -33,7 +55,7 @@ import kotlin.math.roundToInt
  */
 class CaptureBitmapsInteractor
 @Inject
-constructor(){
+constructor(): CaptureBitmaps {
 
     private sealed class PixelCopyJobState {
         data class Done(
@@ -45,7 +67,7 @@ constructor(){
         ): PixelCopyJobState()
     }
 
-    fun execute(
+    override fun execute(
         capturingViewBounds: Rect?,
         window: Window,
         view: View?,

@@ -8,19 +8,44 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
-import com.codingwithmitch.giffit.AnimatedGIFWriter
-import com.codingwithmitch.giffit.FileNameBuilder
+import com.codingwithmitch.giffit.domain.util.AnimatedGIFWriter
+import com.codingwithmitch.giffit.domain.util.FileNameBuilder
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.Constants
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
+import com.codingwithmitch.giffit.interactors.BuildGif.*
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
+
+interface BuildGif {
+
+    fun execute(
+        contentResolver: ContentResolver,
+        bitmaps: List<Bitmap>,
+    ): Flow<DataState<BuildGifResult>>
+
+    data class BuildGifResult(
+        val uri: Uri,
+        val gifSize: Int,
+    )
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class BuildGifModule {
+    @Binds
+    abstract fun provideBuildGif(buildGif: BuildGifInteractor): BuildGif
+}
 
 /**
  * Interactor for building a gif given a list of [Bitmap]'s. The resulting gif is saved it to internal storage.
@@ -31,14 +56,9 @@ class BuildGifInteractor
 constructor(
     private val cacheProvider: CacheProvider,
     private val versionProvider: VersionProvider
-) {
+): BuildGif {
 
-    data class BuildGifResult(
-        val uri: Uri,
-        val gifSize: Int,
-    )
-
-    fun execute(
+    override fun execute(
         contentResolver: ContentResolver,
         bitmaps: List<Bitmap>,
     ): Flow<DataState<BuildGifResult>> =  flow {

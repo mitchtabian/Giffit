@@ -4,15 +4,37 @@ import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
-import com.codingwithmitch.giffit.BitmapUtils
+import com.codingwithmitch.giffit.domain.util.BitmapUtils
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
+
+interface ResizeGif {
+    fun execute(
+        contentResolver: ContentResolver,
+        capturedBitmaps: List<Bitmap>,
+        originalGifSize: Float,
+        targetSize: Float,
+        bilinearFiltering: Boolean = true,
+        discardCachedGif: (Uri) -> Unit,
+    ): Flow<DataState<Uri>>
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class ResizeGifModule {
+    @Binds
+    abstract fun provideResizeGif(resizeGif: ResizeGifInteractor): ResizeGif
+}
 
 /**
  * Interactor for resizing a gif.
@@ -26,14 +48,14 @@ class ResizeGifInteractor
 constructor(
     private val versionProvider: VersionProvider,
     private val cacheProvider: CacheProvider,
-) {
+): ResizeGif {
 
-    fun execute(
+    override fun execute(
         contentResolver: ContentResolver,
         capturedBitmaps: List<Bitmap>,
         originalGifSize: Float,
         targetSize: Float,
-        bilinearFiltering: Boolean = true,
+        bilinearFiltering: Boolean,
         discardCachedGif: (Uri) -> Unit,
     ): Flow<DataState<Uri>> = flow {
         var previousUri: Uri? = null

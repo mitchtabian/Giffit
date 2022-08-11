@@ -2,7 +2,7 @@ package com.codingwithmitch.giffit
 
 import android.graphics.Bitmap
 import android.net.Uri
-import com.codingwithmitch.giffit.MainViewModel.Companion.discardCachedGif
+import com.codingwithmitch.giffit.ui.MainViewModel.Companion.discardCachedGif
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider

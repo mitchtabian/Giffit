@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.ui
 
 import android.Manifest
 import android.os.Build
@@ -21,12 +21,10 @@ import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
-import com.codingwithmitch.giffit.BitmapUtils.checkFilePermissions
-import com.codingwithmitch.giffit.MainState.*
+import com.codingwithmitch.giffit.domain.util.BitmapUtils.checkFilePermissions
+import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import com.codingwithmitch.giffit.ui.*
-import com.codingwithmitch.giffit.ui.SelectBackgroundAsset
-import com.codingwithmitch.giffit.ui.theme.GiffitTheme
+import com.codingwithmitch.giffit.ui.compose.ui.GiffitTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -120,7 +118,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     val state = viewModel.state.value
-                    val mainLoadingState = viewModel.mainLoadingState.value
+                    val mainLoadingState = viewModel.loadingState.value
                     Column(modifier = Modifier.fillMaxSize()) {
                         when(state) {
                             Initial -> {
@@ -166,7 +164,8 @@ class MainActivity : ComponentActivity() {
                                 BackgroundAsset(
                                     bitmapCaptureLoadingState = bitmapCaptureLoadingState,
                                     updateBitmapCaptureJobState = {
-                                        viewModel.mainLoadingState.value = MainLoadingState.BitmapCapture(it)
+                                        viewModel.loadingState.value =
+                                            MainLoadingState.BitmapCapture(it)
                                     },
                                     startBitmapCaptureJob = { view ->
                                         viewModel.runBitmapCaptureJob(

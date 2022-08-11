@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.ui
 
 import android.graphics.Bitmap
 import android.net.Uri
@@ -6,6 +6,8 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import com.codingwithmitch.giffit.domain.util.AssetData
+import com.codingwithmitch.giffit.R
 
 sealed class MainState {
 

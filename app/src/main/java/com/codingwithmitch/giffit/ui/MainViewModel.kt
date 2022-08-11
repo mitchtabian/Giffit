@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.ui
 
 import android.content.ContentResolver
 import android.net.Uri
@@ -10,8 +10,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.codingwithmitch.giffit.MainLoadingState.*
-import com.codingwithmitch.giffit.MainState.*
+import com.codingwithmitch.giffit.ui.MainLoadingState.*
+import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.di.IO
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
@@ -31,22 +31,22 @@ class MainViewModel
 @Inject
 constructor(
     @IO private val ioDispatcher: CoroutineDispatcher,
-    private val captureBitmapsInteractor: CaptureBitmapsInteractor,
-    private val saveGifToExternalStorageInteractor: SaveGifToExternalStorageInteractor,
-    private val buildGifInteractor: BuildGifInteractor,
-    private val resizeGifInteractor: ResizeGifInteractor,
-    private val clearGifCacheInteractor: ClearGifCacheInteractor,
+    private val captureBitmaps: CaptureBitmaps,
+    private val saveGifToExternalStorage: SaveGifToExternalStorage,
+    private val buildGif: BuildGif,
+    private val resizeGif: ResizeGif,
+    private val clearGifCache: ClearGifCache,
 ): ViewModel() {
 
     val state: MutableState<MainState> = mutableStateOf(Initial)
-    val mainLoadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(Idle))
+    val loadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(Idle))
     private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
     val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
     private val _toastEventRelay: MutableStateFlow<ToastEvent?> = MutableStateFlow(null)
     val toastEventRelay: StateFlow<ToastEvent?> get() = _toastEventRelay
 
-    private fun clearCachedFiles() {
-        clearGifCacheInteractor.execute().onEach { _ ->
+    @VisibleForTesting fun clearCachedFiles() {
+        clearGifCache.execute().onEach { _ ->
             // Don't update UI here. Should just succeed or fail silently.
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
@@ -60,7 +60,7 @@ constructor(
         val uriToSave = (state.value as DisplayGif).let {
             it.resizedGifUri ?: it.gifUri
         } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
-        saveGifToExternalStorageInteractor.execute(
+        saveGifToExternalStorage.execute(
             contentResolver = contentResolver,
             cachedUri = uriToSave,
             launchPermissionRequest = launchPermissionRequest,
@@ -68,10 +68,10 @@ constructor(
         ).onEach { dataState ->
             when(dataState) {
                 is DataState.Data -> {
-                    showToast("Saved")
+                    showToast(message = "Saved")
                 }
                 is DataState.Loading -> {
-                    mainLoadingState.value = Standard(dataState.loadingState)
+                    updateLoadingState(Standard(dataState.loadingState))
                 }
                 is DataState.Error -> {
                     publishErrorEvent(
@@ -83,7 +83,7 @@ constructor(
                 }
             }
         }.onCompletion {
-            mainLoadingState.value = Standard(Idle)
+            updateLoadingState(Standard(Idle))
             // Whether or not this succeeds we want to clear the cache.
             // Because if something goes wrong we want to reset anyway.
             clearCachedFiles()
@@ -102,7 +102,7 @@ constructor(
         (state.value as DisplayGif).let {
             // Calculate the target size of the resulting gif.
             val targetSize = it.originalGifSize * it.sizePercentage.toFloat() / 100
-            resizeGifInteractor.execute(
+            resizeGif.execute(
                 contentResolver = contentResolver,
                 capturedBitmaps = it.capturedBitmaps,
                 originalGifSize = it.originalGifSize.toFloat(),
@@ -113,7 +113,7 @@ constructor(
             ).onEach { dataState ->
                 when(dataState) {
                     is DataState.Loading -> {
-                        mainLoadingState.value = ResizingGif(dataState.loadingState)
+                        updateLoadingState(ResizingGif(dataState.loadingState))
                     }
                     is DataState.Data -> {
                         state.value = (state.value as DisplayGif).copy(
@@ -130,7 +130,7 @@ constructor(
                     }
                 }
             }.onCompletion {
-                mainLoadingState.value = Standard(Idle)
+                loadingState.value = Standard(Idle)
             }.flowOn(ioDispatcher).launchIn(viewModelScope)
         }
     }
@@ -142,7 +142,7 @@ constructor(
        view: View?,
    ) {
        check(state.value is DisplayBackgroundAsset) { "runBitmapCaptureJob: Invalid state: ${state.value}" }
-       mainLoadingState.value = BitmapCapture(Active(0f))
+       loadingState.value = BitmapCapture(Active(0f))
        // We need a way to stop the job if a user presses "STOP". So create a Job for this.
        val bitmapCaptureJob = Job()
        // Create convenience function for checking if the user pressed "STOP".
@@ -154,13 +154,13 @@ constructor(
            }
        }
        // Execute the use-case.
-       captureBitmapsInteractor.execute(
+       captureBitmaps.execute(
            capturingViewBounds = capturingViewBounds,
            window = window,
            view = view,
        ).onEach { dataState ->
            // If the user hits the "STOP" button, complete the job by canceling.
-           checkShouldCancelJob(mainLoadingState.value)
+           checkShouldCancelJob(loadingState.value)
            when(dataState) {
                is DataState.Data -> {
                    dataState.data?.let { bitmaps ->
@@ -173,7 +173,7 @@ constructor(
                    // For this use-case, if an error occurs we need to stop the job.
                    // Otherwise it will keep trying to capture bitmaps and failing over and over.
                    bitmapCaptureJob.cancel(CAPTURE_BITMAP_ERROR)
-                   mainLoadingState.value = None
+                   loadingState.value = None
                    publishErrorEvent(
                        ErrorEvent(
                            id = UUID.randomUUID().toString(),
@@ -182,11 +182,11 @@ constructor(
                    )
                }
                is DataState.Loading -> {
-                   mainLoadingState.value = BitmapCapture(dataState.loadingState)
+                   updateLoadingState(BitmapCapture(dataState.loadingState))
                }
            }
        }.flowOn(ioDispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
-           mainLoadingState.value = Standard(Idle)
+           updateLoadingState(Standard(Idle))
            val onSuccess: () -> Unit = {
                buildGif(contentResolver = contentResolver)
            }
@@ -209,14 +209,14 @@ constructor(
        }
    }
 
-    private fun buildGif(
+    @VisibleForTesting fun buildGif(
         contentResolver: ContentResolver,
     ) {
         check(state.value is DisplayBackgroundAsset) { "buildGif: Invalid state: ${state.value}" }
         val capturedBitmaps = (state.value as DisplayBackgroundAsset).capturedBitmaps
         check(capturedBitmaps.isNotEmpty()) { "You have no bitmaps to build a gif from!" }
-        mainLoadingState.value = Standard(Active())
-        buildGifInteractor.execute(
+        loadingState.value = Standard(Active())
+        buildGif.execute(
             contentResolver = contentResolver,
             bitmaps = capturedBitmaps,
         ).onEach { dataState ->
@@ -244,11 +244,11 @@ constructor(
                     )
                 }
                 is DataState.Loading -> {
-                    mainLoadingState.value = Standard(dataState.loadingState)
+                    updateLoadingState(Standard(dataState.loadingState))
                 }
             }
         }.onCompletion {
-            mainLoadingState.value = Standard(Idle)
+            loadingState.value = Standard(Idle)
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
 
@@ -298,13 +298,20 @@ constructor(
         _errorRelay.value = setOf()
     }
 
-    private fun showToast(message: String) {
+    private fun showToast(
+        id: String = UUID.randomUUID().toString(),
+        message: String
+    ) {
         _toastEventRelay.tryEmit(
             ToastEvent(
-                id = UUID.randomUUID().toString(),
+                id = id,
                 message = message
             )
         )
+    }
+
+    private fun updateLoadingState(loadingState: MainLoadingState) {
+        this.loadingState.value = loadingState
     }
 
     companion object {
@@ -319,13 +326,4 @@ constructor(
         }
     }
 }
-
-
-
-
-
-
-
-
-
 

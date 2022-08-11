@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.ui
 
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 

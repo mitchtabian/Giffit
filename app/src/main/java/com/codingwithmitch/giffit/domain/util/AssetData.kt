@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.domain.util
 
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.geometry.Offset

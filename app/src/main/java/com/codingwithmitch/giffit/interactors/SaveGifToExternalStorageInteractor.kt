@@ -7,14 +7,36 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
-import com.codingwithmitch.giffit.FileNameBuilder
+import com.codingwithmitch.giffit.domain.util.FileNameBuilder
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
+
+interface SaveGifToExternalStorage {
+    fun execute(
+        contentResolver: ContentResolver,
+        cachedUri: Uri,
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
+    ): Flow<DataState<Uri>>
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class SaveGifToExternalStorageModule {
+    @Binds
+    abstract fun provideSaveGifToExternalStorage(
+        saveGifToExternalStorage: SaveGifToExternalStorageInteractor
+    ): SaveGifToExternalStorage
+}
 
 /**
  * Interactor for saving a cached [Uri] to external storage. A cached [Uri] is defined as a [Uri] that is
@@ -30,10 +52,10 @@ class SaveGifToExternalStorageInteractor
 @Inject
 constructor(
     private val versionProvider: VersionProvider,
-) {
+): SaveGifToExternalStorage {
 
     @SuppressLint("NewApi")
-    fun execute(
+    override fun execute(
         contentResolver: ContentResolver,
         cachedUri: Uri,
         launchPermissionRequest: () -> Unit,

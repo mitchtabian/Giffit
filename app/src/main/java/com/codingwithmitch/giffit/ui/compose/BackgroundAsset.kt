@@ -33,8 +33,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
-import com.codingwithmitch.giffit.AssetData
-import com.codingwithmitch.giffit.MainLoadingState
+import com.codingwithmitch.giffit.domain.util.AssetData
 import com.codingwithmitch.giffit.domain.DataState
 import kotlin.math.PI
 import kotlin.math.abs

@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit
+package com.codingwithmitch.giffit.domain.util
 
 import android.os.Build
 import androidx.annotation.RequiresApi
