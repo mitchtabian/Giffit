@@ -142,7 +142,7 @@ constructor(
        view: View?,
    ) {
        check(state.value is DisplayBackgroundAsset) { "runBitmapCaptureJob: Invalid state: ${state.value}" }
-       loadingState.value = BitmapCapture(Active(0f))
+       updateLoadingState(BitmapCapture(Active(0f)))
        // We need a way to stop the job if a user presses "STOP". So create a Job for this.
        val bitmapCaptureJob = Job()
        // Create convenience function for checking if the user pressed "STOP".

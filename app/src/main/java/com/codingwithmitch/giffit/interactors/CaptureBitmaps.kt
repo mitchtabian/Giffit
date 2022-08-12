@@ -1,39 +1,39 @@
 package com.codingwithmitch.giffit.interactors
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
-import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Rect
 import androidx.core.graphics.applyCanvas
 import com.codingwithmitch.giffit.domain.Constants.TAG
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.VersionProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
-import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 interface CaptureBitmaps {
 
+    /**
+     * @param window is only required if [Build.VERSION_CODES] >= [Build.VERSION_CODES.N].
+     *  Otherwise this can be null.
+     */
     fun execute(
         capturingViewBounds: Rect?,
-        window: Window,
         view: View?,
+        window: Window?,
     ): Flow<DataState<List<Bitmap>>>
 }
 
@@ -55,22 +55,19 @@ abstract class CaptureBitmapsModule {
  */
 class CaptureBitmapsInteractor
 @Inject
-constructor(): CaptureBitmaps {
+constructor(
+    private val versionProvider: VersionProvider,
+    private val pixelCopyJob: PixelCopyJob,
+): CaptureBitmaps {
 
-    private sealed class PixelCopyJobState {
-        data class Done(
-            val bitmap: Bitmap
-        ): PixelCopyJobState()
-
-        data class Error(
-            val message: String
-        ): PixelCopyJobState()
-    }
-
+    /**
+     * Suppress warning since we're using [VersionProvider].
+     */
+    @SuppressLint("NewApi")
     override fun execute(
         capturingViewBounds: Rect?,
-        window: Window,
         view: View?,
+        window: Window?,
     ): Flow<DataState<List<Bitmap>>> = flow {
         emit(Loading(Active()))
         try {
@@ -82,17 +79,18 @@ constructor(): CaptureBitmaps {
                 delay(CAPTURE_INTERVAL_MS.toLong())
                 elapsedTime += CAPTURE_INTERVAL_MS
                 emit(Loading(Active(elapsedTime / TOTAL_CAPTURE_TIME_MS)))
-                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val pixelCopyJobState = captureBitmap(
-                        rect = capturingViewBounds,
+                val bitmap = if (versionProvider.provideVersion() >= Build.VERSION_CODES.N) {
+                    check(window != null) { "Window is required for PixelCopy." }
+                    val pixelCopyJobState = pixelCopyJob.execute(
+                        capturingViewBounds = capturingViewBounds,
                         view = view,
-                        window = window,
+                        window = window
                     )
                     when (pixelCopyJobState) {
-                        is PixelCopyJobState.Done -> {
+                        is PixelCopyJob.PixelCopyJobState.Done -> {
                             pixelCopyJobState.bitmap
                         }
-                        is PixelCopyJobState.Error -> {
+                        is PixelCopyJob.PixelCopyJobState.Error -> {
                             throw Exception(pixelCopyJobState.message)
                         }
                     }
@@ -113,56 +111,9 @@ constructor(): CaptureBitmaps {
         emit(Loading(Idle))
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @RequiresApi(Build.VERSION_CODES.O)
-    private suspend fun captureBitmap(
-        rect: Rect?,
-        window: Window,
-        view: View,
-    ): PixelCopyJobState = suspendCancellableCoroutine { cont ->
-        try {
-            check(rect != null) { "Invalid capture area." }
-            val bitmap = Bitmap.createBitmap(
-                view.width, view.height,
-                Bitmap.Config.ARGB_8888
-            )
-
-            val locationOfViewInWindow = IntArray(2)
-            view.getLocationInWindow(locationOfViewInWindow)
-            val xCoordinate = locationOfViewInWindow[0]
-            val yCoordinate = locationOfViewInWindow[1]
-            val scope = android.graphics.Rect(
-                xCoordinate,
-                yCoordinate,
-                xCoordinate + view.width,
-                yCoordinate + view.height
-            )
-            // Take screenshot
-            PixelCopy.request(
-                window,
-                scope,
-                bitmap,
-                { p0 ->
-                    if (p0 == PixelCopy.SUCCESS) {
-                        // Crop the screenshot
-                        val bmp = Bitmap.createBitmap(
-                            bitmap,
-                            rect.left.toInt(),
-                            rect.top.toInt(),
-                            rect.width.roundToInt(),
-                            rect.height.roundToInt()
-                        )
-                        cont.resume(PixelCopyJobState.Done(bmp))
-                    } else {
-                        cont.resume(PixelCopyJobState.Error(CAPTURE_BITMAP_ERROR))
-                    }
-                },
-                Handler(Looper.getMainLooper()) )
-        } catch (e: Exception) {
-            cont.resume(PixelCopyJobState.Error(e.message ?: CAPTURE_BITMAP_ERROR))
-        }
-    }
-
+    /**
+     * Capture a screenshot on API < [Build.VERSION_CODES.N].
+     */
     private fun captureBitmap(
         rect: Rect?,
         view: View,
