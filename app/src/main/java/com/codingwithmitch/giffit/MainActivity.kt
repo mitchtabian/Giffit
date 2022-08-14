@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
@@ -25,6 +26,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -60,10 +63,13 @@ class MainActivity : ComponentActivity() {
                         }
                         var activeShapeId by remember { mutableStateOf("one") }
                         var isActiveShapeInMotion by remember { mutableStateOf(false) }
+                        val configuration = LocalConfiguration.current
+                        val backgroundHeight = (configuration.screenHeightDp * 0.6).toInt()
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .background(Color.Gray)
+                                .height(backgroundHeight.dp)
                         ) {
                             samples.forEach {
                                 RenderShape(
@@ -77,7 +83,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onGestureFinished = {
                                         isActiveShapeInMotion = false
-                                    }
+                                    },
+                                    backgroundHeightDp = backgroundHeight,
+                                    screenWidthDp = configuration.screenWidthDp
                                 )
                             }
                         }
@@ -116,11 +124,16 @@ fun RenderShape(
     isEnabled: Boolean,
     onGestureStarted: () -> Unit,
     onGestureFinished: () -> Unit,
+    screenWidthDp: Int,
+    backgroundHeightDp: Int,
 ) {
     var offset by remember { mutableStateOf(shapeData.initialOffset) }
     var zoom by remember { mutableStateOf(1f) }
     var angle by remember { mutableStateOf(0f) }
     var size by remember { mutableStateOf(shapeData.initialSize) }
+
+    val xOffset = with(LocalDensity.current) { -offset.x.toDp() }
+    val yOffset = with(LocalDensity.current) { -offset.y.toDp() }
 
     // Not sure why I couldn't just use isEnabled but it doesn't work somehow.
     var enabled by remember { mutableStateOf(isEnabled) }
@@ -138,12 +151,11 @@ fun RenderShape(
                 }
             )
             .size(width = size.width.dp, height = size.height.dp)
-            .offset {
-                IntOffset(
-                    -offset.x.toInt(),
-                    -offset.y.toInt()
-                )
-            }
+            .offset(
+                x = xOffset,
+                y = yOffset
+            )
+            .border(2.dp, Color.White)
             .pointerInput(Unit) {
                 detectTransformGesturesAndTouch(
                     onGestureStarted = {
@@ -179,6 +191,44 @@ fun RenderShape(
                                     (centroid / newScale + pan / oldScale)
                         }
                         offset = newOffset
+
+                        val a = size.width.dp / 2
+                        val b = size.height.dp / 2
+
+                        // Start bound
+                        if (offset.x.toDp() >= a) {
+                            offset = Offset(
+                                x = a.toPx(),
+                                y = offset.y
+                            )
+                        }
+
+                        // Top bound
+                        if (offset.y.toDp() >= b) {
+                            offset = Offset(
+                                x = offset.x,
+                                y = b.toPx()
+                            )
+                        }
+
+                        // End-x bound
+                        val endXBound = (-screenWidthDp.dp + a)
+                        if (offset.x.toDp() < endXBound) {
+                            offset = Offset(
+                                x = endXBound.toPx(),
+                                y = offset.y
+                            )
+                        }
+
+                        // Bottom-y bound
+                        val bottomYBound = (-backgroundHeightDp.dp + b)
+                        if (offset.y.toDp() < bottomYBound) {
+                            offset = Offset(
+                                x = offset.x,
+                                y = bottomYBound.toPx()
+                            )
+                        }
+
                         size = newSize
                         zoom = newScale
                         angle += gestureRotate
