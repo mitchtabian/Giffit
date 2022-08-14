@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
+import androidx.constraintlayout.compose.ConstraintLayout
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlin.math.*
 
@@ -49,27 +50,54 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Button(
+                    val configuration = LocalConfiguration.current
+                    ConstraintLayout(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        val (topBar, assetBox, bottomContainer) = createRefs()
+                        // Top bar
+                        // topBarHeight = (default app bar height) + (button padding)
+                        val saveBtnPadding = 16.dp
+                        val topBarHeight = remember { 56.dp + saveBtnPadding }
+                        Column(
                             modifier = Modifier
-                                .padding(horizontal = 16.dp, vertical = 16.dp)
-                                .align(Alignment.End)
-                            ,
-                            onClick = {
-                                // TODO("Save image")
-                            }
+                                .fillMaxWidth()
+                                .height(topBarHeight)
+                                .constrainAs(topBar) {
+                                    top.linkTo(parent.top)
+                                    start.linkTo(parent.start)
+                                    end.linkTo(parent.end)
+                                }
+                                .zIndex(2f)
+                                .background(Color.White)
                         ) {
-                            Text("Save")
+                            Button(
+                                modifier = Modifier
+                                    .padding(saveBtnPadding)
+                                    .align(Alignment.End),
+                                onClick = {
+                                    // TODO("Save image")
+                                }
+                            ) {
+                                Text("Save")
+                            }
                         }
+
+                        // Background with asset
                         var activeShapeId by remember { mutableStateOf("one") }
                         var isActiveShapeInMotion by remember { mutableStateOf(false) }
-                        val configuration = LocalConfiguration.current
-                        val backgroundHeight = (configuration.screenHeightDp * 0.6).toInt()
+                        val backgroundHeight = remember { (configuration.screenHeightDp * 0.6).toInt() }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(Color.Gray)
                                 .height(backgroundHeight.dp)
+                                .zIndex(1f)
+                                .constrainAs(assetBox) {
+                                    top.linkTo(topBar.bottom)
+                                    start.linkTo(parent.start)
+                                    end.linkTo(parent.end)
+                                }
                         ) {
                             samples.forEach {
                                 RenderShape(
@@ -89,6 +117,21 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        // Bottom container with the remaining view height
+                        val remainingHeight = remember { configuration.screenHeightDp.dp - topBarHeight - backgroundHeight.dp }
+                        Box(
+                            modifier = Modifier
+                                .background(Color.White)
+                                .fillMaxWidth()
+                                .height(remainingHeight)
+                                .zIndex(2f)
+                                .constrainAs(bottomContainer) {
+                                    bottom.linkTo(parent.bottom)
+                                    top.linkTo(assetBox.bottom)
+                                    start.linkTo(parent.start)
+                                    end.linkTo(parent.end)
+                                }
+                        )
                     }
                 }
             }
