@@ -12,23 +12,15 @@ import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.domain.DataState
 
 @Composable
-fun Footer(
-    mainState: MainState,
+fun BackgroundAssetFooter(
+    modifier: Modifier,
     bitmapCapture: MainLoadingState,
     launchImagePicker: () -> Unit,
 ) {
-    val pair = if (mainState is MainState.DisplayBackgroundAsset) {
-        Pair(
-            mainState.backgroundAssetUri,
-            bitmapCapture.loadingState is DataState.Loading.LoadingState.Active
-        )
-    } else {
-        null
-    }
-    // If there is a background asset AND the bitmap capture job is not running, show footer.
-    if (pair?.first != null && !pair.second) {
+    // If bitmap capture job is not running, show footer.
+    if (bitmapCapture.loadingState !is DataState.Loading.LoadingState.Active) {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {

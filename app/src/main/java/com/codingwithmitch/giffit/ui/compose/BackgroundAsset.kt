@@ -4,17 +4,15 @@ import android.net.Uri
 import android.view.View
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TransformOrigin
@@ -26,15 +24,16 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
+import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.domain.util.AssetData
 import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.ui.compose.RecordActionBar
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -47,70 +46,91 @@ fun BackgroundAsset(
     startBitmapCaptureJob: (View) -> Unit,
     backgroundAssetUri: Uri,
     assetData: AssetData,
-    updateCapturingViewBounds: (Rect) -> Unit
+    updateCapturingViewBounds: (Rect) -> Unit,
+    bitmapCapture: MainLoadingState,
+    launchImagePicker: () -> Unit,
 ) {
-    val view = LocalView.current
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+    ConstraintLayout(
+        modifier = Modifier.fillMaxSize()
     ) {
-        Box(
+        val (topBar, assetContainer, bottomContainer) = createRefs()
+
+        // Top bar
+        // topBarHeight = (default app bar height) + (button padding)
+        val topBarHeight = remember { 56 + 16 }
+        RecordActionBar(
             modifier = Modifier
-                .weight(3f)
-                .height(50.dp)
-                .background(Color.Transparent)
-        ) {
-            when(val loadingState = bitmapCaptureLoadingState?.loadingState) {
-                is DataState.Loading.LoadingState.Active -> {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .border(width = 1.dp, color = Color.Black, shape = RoundedCornerShape(4.dp))
-                            .align(Alignment.Center)
-                            .fillMaxWidth()
-                            .height(45.dp)
-                            .padding(end = 16.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                        ,
-                        progress = loadingState.progress ?: 0f,
-                        backgroundColor = Color.White,
-                        color = MaterialTheme.colors.primary
-                    )
+                .height(topBarHeight.dp)
+                .background(Color.White)
+                .constrainAs(topBar) {
+                    top.linkTo(parent.top)
+                    start.linkTo(parent.start)
+                    end.linkTo(parent.end)
                 }
-            }
-        }
-        val isRecording = bitmapCaptureLoadingState != null &&
-                bitmapCaptureLoadingState.loadingState is DataState.Loading.LoadingState.Active &&
-                (bitmapCaptureLoadingState.loadingState.progress ?: 0f) > 0f
-        RecordButton(
-            modifier = Modifier.weight(1f),
-            isRecording = isRecording,
+                .zIndex(2f)
+            ,
+            bitmapCaptureLoadingState = bitmapCaptureLoadingState,
             updateBitmapCaptureJobState = updateBitmapCaptureJobState,
-            startBitmapCaptureJob = {
-                startBitmapCaptureJob(view)
-            },
+            startBitmapCaptureJob = startBitmapCaptureJob
         )
+
+        // Gif capture area
+        val configuration = LocalConfiguration.current
+        val assetContainerHeight = remember { (configuration.screenHeightDp * 0.6).toInt() }
+        RenderBackground(
+            modifier = Modifier
+                .constrainAs(assetContainer) {
+                    start.linkTo(parent.start)
+                    end.linkTo(parent.end)
+                    top.linkTo(topBar.bottom)
+                }
+                .zIndex(1f)
+            ,
+            backgroundAsset = backgroundAssetUri,
+            assetData = assetData,
+            updateCapturingViewBounds = updateCapturingViewBounds,
+            screenWidthDp = configuration.screenWidthDp,
+            assetContainerHeightDp = assetContainerHeight
+        )
+
+        // Bottom container
+        val bottomContainerHeight = remember { configuration.screenHeightDp - assetContainerHeight - topBarHeight }
+        BackgroundAssetFooter(
+            modifier = Modifier
+                .background(Color.White)
+                .height(bottomContainerHeight.dp)
+                .constrainAs(bottomContainer) {
+                    start.linkTo(parent.start)
+                    end.linkTo(parent.end)
+                    top.linkTo(assetContainer.bottom)
+                    bottom.linkTo(parent.bottom)
+                }
+                .zIndex(2f)
+            ,
+            bitmapCapture = bitmapCapture
+        ) {
+            launchImagePicker()
+        }
     }
-    RenderBackground(
-        backgroundAsset = backgroundAssetUri,
-        assetData = assetData,
-        updateCapturingViewBounds = updateCapturingViewBounds
-    )
 }
 
 @Composable
 fun RenderBackground(
+    modifier: Modifier,
     backgroundAsset: Uri?,
     assetData: AssetData,
     updateCapturingViewBounds: (Rect) -> Unit,
+    screenWidthDp: Int,
+    assetContainerHeightDp: Int,
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .wrapContentSize()
     ) {
-        val configuration = LocalConfiguration.current
         AsyncImage(
             modifier = Modifier
                 .fillMaxWidth()
-                .height((configuration.screenHeightDp * 0.6).dp)
+                .height(assetContainerHeightDp.dp)
                 .onGloballyPositioned {
                     updateCapturingViewBounds(it.boundsInRoot())
                 }
@@ -119,7 +139,11 @@ fun RenderBackground(
             contentScale = ContentScale.Crop,
             contentDescription = ""
         )
-        RenderAsset(assetData = assetData)
+        RenderAsset(
+            assetData = assetData,
+            screenWidthDp = screenWidthDp,
+            assetContainerHeightDp = assetContainerHeightDp
+        )
     }
 }
 
@@ -133,7 +157,6 @@ fun RecordButton(
     Button(
         modifier = modifier
             .wrapContentWidth()
-            .zIndex(3f) // TODO("asset can be above the button somehow, need to fix")
         ,
         colors = if (isRecording) {
             ButtonDefaults.buttonColors(
@@ -168,6 +191,8 @@ fun RecordButton(
 @Composable
 fun RenderAsset(
     assetData: AssetData,
+    screenWidthDp: Int,
+    assetContainerHeightDp: Int,
 ) {
     var offset by remember { mutableStateOf(assetData.initialOffset) }
     var zoom by remember { mutableStateOf(1f) }
@@ -177,48 +202,110 @@ fun RenderAsset(
     val xOffset = with(LocalDensity.current) { -offset.x.toDp() }
     val yOffset = with(LocalDensity.current) { -offset.y.toDp() }
 
-    val painter: Painter = rememberAsyncImagePainter(model = assetData.id)
-    Image(
+    Box (
         modifier = Modifier
-            .size(width = size.width.dp, height = size.height.dp)
-            .offset(
-                x = xOffset,
-                y = yOffset
-            )
-            .pointerInput(Unit) {
-                detectTransformGesturesAndTouch(
-                    onGesture = { centroid, pan, gestureZoom, gestureRotate ->
-                        val oldScale = zoom
-                        val newScale = zoom * gestureZoom
-
-                        // If we're only moving the shape we need to put bounds on how fast it can move.
-                        // Otherwise as it gets smaller it will move faster. And as it gets bigger it will
-                        // move slower.
-                        val newSize = size * gestureZoom
-                        // If zoom has not changed, limit movement speed.
-                        val newOffset = if (newSize == size) {
-                            offset - pan
-                        } else { // We're zooming/rotating
-                            // https://developer.android.com/reference/kotlin/androidx/compose/foundation/gestures/package-summary#(androidx.compose.ui.input.pointer.PointerInputScope).detectTransformGestures(kotlin.Boolean,kotlin.Function4)
-                            (offset + centroid / oldScale).rotateBy(gestureRotate) -
-                                    (centroid / newScale + pan / oldScale)
-                        }
-                        offset = newOffset
-                        size = newSize
-                        zoom = newScale
-                        angle += gestureRotate
-                    }
+            .width(screenWidthDp.dp)
+            .height(assetContainerHeightDp.dp)
+    ) {
+        val painter: Painter = rememberAsyncImagePainter(model = assetData.id)
+        Image(
+            modifier = Modifier
+                .size(width = size.width.dp, height = size.height.dp)
+                .offset(
+                    x = xOffset,
+                    y = yOffset
                 )
-            }
-            .graphicsLayer {
-                rotationZ = angle
-                transformOrigin = TransformOrigin.Center
-            }
-            .clip(RectangleShape)
-        ,
-        painter = painter,
-        contentDescription = ""
-    )
+                .pointerInput(Unit) {
+                    detectTransformGesturesAndTouch(
+                        onGesture = { centroid, pan, gestureZoom, gestureRotate ->
+                            val oldScale = zoom
+                            val newScale = zoom * gestureZoom
+                            var newSize = size * gestureZoom
+
+                            // Restrict the height
+                            if (newSize.height >= assetContainerHeightDp) {
+                                newSize = Size(
+                                    width = newSize.width,
+                                    height = assetContainerHeightDp.toFloat()
+                                )
+                            }
+
+                            // Restrict the width
+                            if (newSize.width >= screenWidthDp) {
+                                newSize = Size(
+                                    width = screenWidthDp.toFloat(),
+                                    height = newSize.height
+                                )
+                            }
+
+                            // If we're only moving the shape we need to put bounds on how fast it can move.
+                            // Otherwise as it gets smaller it will move faster. And as it gets bigger it will
+                            // move slower.
+                            // If zoom has not changed, limit movement speed.
+                            val newOffset = if (newSize == size) {
+                                offset - pan
+                            } else { // We're zooming/rotating
+                                // https://developer.android.com/reference/kotlin/androidx/compose/foundation/gestures/package-summary#(androidx.compose.ui.input.pointer.PointerInputScope).detectTransformGestures(kotlin.Boolean,kotlin.Function4)
+                                (offset + centroid / oldScale).rotateBy(gestureRotate) -
+                                        (centroid / newScale + pan / oldScale)
+                            }
+                            offset = newOffset
+
+                            // Restrict the offset
+                            val a = size.width.dp / 2
+                            val b = size.height.dp / 2
+
+                            // Start bound
+                            if (offset.x.toDp() >= a) {
+                                offset = Offset(
+                                    x = a.toPx(),
+                                    y = offset.y
+                                )
+                            }
+
+                            // Top bound
+                            if (offset.y.toDp() >= b) {
+                                offset = Offset(
+                                    x = offset.x,
+                                    y = b.toPx()
+                                )
+                            }
+
+                            // End-x bound
+                            val endXBound = (-screenWidthDp.dp + a)
+                            if (offset.x.toDp() < endXBound) {
+                                offset = Offset(
+                                    x = endXBound.toPx(),
+                                    y = offset.y
+                                )
+                            }
+
+                            // Bottom-y bound
+                            val bottomYBound = (-assetContainerHeightDp.dp + b)
+                            if (offset.y.toDp() < bottomYBound) {
+                                offset = Offset(
+                                    x = offset.x,
+                                    y = bottomYBound.toPx()
+                                )
+                            }
+
+                            size = newSize
+                            zoom = newScale
+                            angle += gestureRotate
+                        }
+                    )
+                }
+                .graphicsLayer {
+                    rotationZ = angle
+                    transformOrigin = TransformOrigin.Center
+                }
+                .clip(RectangleShape)
+                .zIndex(1f)
+            ,
+            painter = painter,
+            contentDescription = ""
+        )
+    }
 }
 
 private suspend fun PointerInputScope.detectTransformGesturesAndTouch(

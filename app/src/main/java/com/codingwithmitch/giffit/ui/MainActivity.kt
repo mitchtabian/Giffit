@@ -15,6 +15,8 @@ import androidx.compose.material.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
 import com.canhub.cropper.CropImageContract
@@ -179,13 +181,17 @@ class MainActivity : ComponentActivity() {
                                     assetData = state.assetData,
                                     updateCapturingViewBounds = { rect ->
                                         viewModel.state.value = state.copy(capturingViewBounds = rect)
+                                    },
+                                    bitmapCapture = mainLoadingState,
+                                    launchImagePicker = {
+                                        backgroundAssetPickerLauncher.launch("image/*")
                                     }
                                 )
                             }
                         }
-                        Footer(state, mainLoadingState) {
-                            backgroundAssetPickerLauncher.launch("image/*")
-                        }
+//                        Footer(state, mainLoadingState) {
+//                            backgroundAssetPickerLauncher.launch("image/*")
+//                        }
                     }
                     LoadingUI(mainLoadingState = mainLoadingState)
                     val errorEvents by viewModel.errorRelay.collectAsState()
