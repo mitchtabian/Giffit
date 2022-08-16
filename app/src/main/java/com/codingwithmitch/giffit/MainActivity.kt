@@ -3,17 +3,22 @@ package com.codingwithmitch.giffit
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 
@@ -29,51 +34,29 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    // Option 1: Boxes
                     Box(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .width(50.dp)
-                                .height(50.dp)
-                                .clip(RectangleShape)
-                                .background(Color.Blue)
-                        )
+                        var offsetXPx by remember { mutableStateOf(0f) }
+                        val offsetXDp = with(LocalDensity.current) { offsetXPx.toDp() }
                         Box(
                             modifier = Modifier
                                 .width(50.dp)
                                 .height(50.dp)
                                 .offset(
-                                    x = 50.dp,
+                                    x = offsetXDp,
                                     y = 50.dp
                                 )
                                 .clip(RectangleShape)
                                 .background(Color.Black)
+                                .draggable(
+                                    orientation = Orientation.Horizontal,
+                                    state = rememberDraggableState { deltaX ->
+                                        offsetXPx += deltaX
+                                    }
+                                )
                         )
                     }
-
-                    // Option 2: Canvas
-//                    Canvas(
-//                        modifier = Modifier.fillMaxSize()
-//                    ) {
-//                        drawRect(
-//                            color = Color.Blue,
-//                            size = Size(50.dp.toPx(), 50.dp.toPx()),
-//                            topLeft = Offset(
-//                                x = 200.dp.toPx(),
-//                                y = 200.dp.toPx()
-//                            )
-//                        )
-//                        drawRect(
-//                            color = Color.Black,
-//                            size = Size(50.dp.toPx(), 50.dp.toPx()),
-//                            topLeft = Offset(
-//                                x = 50.dp.toPx(),
-//                                y = 50.dp.toPx()
-//                            )
-//                        )
-//                    }
                 }
             }
         }
