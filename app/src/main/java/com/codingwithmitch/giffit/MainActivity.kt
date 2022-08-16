@@ -274,13 +274,6 @@ fun RenderShape(
                         size = newSize
                         zoom = newScale
                         angle += gestureRotate
-//                        Log.d(TAG, "offsetX: ${offset.x}")
-//                        Log.d(TAG, "offsetY: ${offset.y}")
-//                        Log.d(TAG, "centroid: ${centroid}")
-//                        Log.d(TAG, "pan: ${centroid}")
-//                        Log.d(TAG, "gestureZoom: ${gestureZoom}")
-//                        Log.d(TAG, "currentZoom: ${zoom}")
-//                        Log.d(TAG, "gestureRotate: ${gestureRotate}")
                     }
                 )
             }
