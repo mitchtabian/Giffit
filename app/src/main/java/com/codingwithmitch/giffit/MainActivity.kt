@@ -4,9 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -16,8 +14,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
@@ -35,24 +35,24 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        var offsetXPx by remember { mutableStateOf(0f) }
-                        val offsetXDp = with(LocalDensity.current) { offsetXPx.toDp() }
+                        var offset by remember { mutableStateOf(Offset(0f, 0f)) }
+                        val offsetXDp = with(LocalDensity.current) { offset.x.toDp() }
+                        val offsetYDp = with(LocalDensity.current) { offset.y.toDp() }
                         Box(
                             modifier = Modifier
                                 .width(50.dp)
                                 .height(50.dp)
                                 .offset(
                                     x = offsetXDp,
-                                    y = 50.dp
+                                    y = offsetYDp
                                 )
                                 .clip(RectangleShape)
                                 .background(Color.Black)
-                                .draggable(
-                                    orientation = Orientation.Horizontal,
-                                    state = rememberDraggableState { deltaX ->
-                                        offsetXPx += deltaX
+                                .pointerInput(Unit) {
+                                    detectDragGestures { change, dragAmount ->
+                                        offset += dragAmount
                                     }
-                                )
+                                }
                         )
                     }
                 }
