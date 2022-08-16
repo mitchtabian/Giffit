@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        var offset by remember { mutableStateOf(Offset(0f, 0f)) }
+                        var offset by remember { mutableStateOf(Offset.Zero) }
                         val offsetXDp = with(LocalDensity.current) { offset.x.toDp() }
                         val offsetYDp = with(LocalDensity.current) { offset.y.toDp() }
                         Box(
