@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
@@ -29,12 +28,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
+import coil.compose.AsyncImage
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import kotlin.math.*
 
@@ -99,6 +98,15 @@ class MainActivity : ComponentActivity() {
                                     end.linkTo(parent.end)
                                 }
                         ) {
+                            AsyncImage(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(backgroundHeight.dp)
+                                ,
+                                model = R.drawable.mitch,
+                                contentScale = ContentScale.Crop,
+                                contentDescription = ""
+                            )
                             samples.forEach {
                                 RenderShape(
                                     shapeData = it,
