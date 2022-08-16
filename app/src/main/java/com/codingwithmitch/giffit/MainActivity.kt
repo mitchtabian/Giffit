@@ -22,8 +22,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 
-val TAG = "MitchsLog"
-
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
