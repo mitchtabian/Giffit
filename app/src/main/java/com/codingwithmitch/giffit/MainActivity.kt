@@ -198,7 +198,6 @@ fun RenderShape(
                 x = xOffset,
                 y = yOffset
             )
-            .border(2.dp, Color.White)
             .pointerInput(Unit) {
                 detectTransformGesturesAndTouch(
                     onGestureStarted = {
