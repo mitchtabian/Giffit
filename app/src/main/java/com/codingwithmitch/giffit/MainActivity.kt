@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.ui.theme.GiffitTheme
 import java.lang.Math.*
 
@@ -39,35 +40,32 @@ class MainActivity : ComponentActivity() {
                         var angle by remember { mutableStateOf(0f) }
                         Box(
                             modifier = Modifier
-                                .pointerInput(Unit) {
-                                    detectTransformGestures(
-                                        onGesture = { centroid, pan, gestureZoom, gestureRotate ->
-                                            val oldScale = zoom
-                                            val newScale = zoom * gestureZoom
-
-                                            // For natural zooming and rotating, the centroid of the gesture should
-                                            // be the fixed point where zooming and rotating occurs.
-                                            // We compute where the centroid was (in the pre-transformed coordinate
-                                            // space), and then compute where it will be after this delta.
-                                            // We then compute what the new offset should be to keep the centroid
-                                            // visually stationary for rotating and zooming, and also apply the pan.
-                                            offset = (offset + centroid / oldScale).rotateBy(gestureRotate) -
-                                                    (centroid / newScale + pan / oldScale)
-                                            zoom = newScale
-                                            angle += gestureRotate
-                                        }
-                                    )
-                                }
                                 .graphicsLayer {
-                                    translationX = -offset.x * zoom
-                                    translationY = -offset.y * zoom
+                                    // Change 1
+                                    val rotatedOffset = offset.rotateBy(angle)
+                                    translationX = -rotatedOffset.x
+                                    translationY = -rotatedOffset.y
                                     scaleX = zoom
                                     scaleY = zoom
                                     rotationZ = angle
                                     transformOrigin = TransformOrigin(0f, 0f)
                                 }
+                                .pointerInput(Unit) {
+                                    detectTransformGestures(
+                                        onGesture = { centroid, pan, gestureZoom, gestureRotate ->
+                                            val oldScale = zoom
+                                            val newScale = zoom * gestureZoom
+                                            angle += gestureRotate
+                                            zoom = newScale
+
+                                            // Change 2
+                                            offset = (offset - centroid * oldScale).rotateBy(-gestureRotate) +
+                                                    (centroid * newScale - pan * oldScale)
+                                        }
+                                    )
+                                }
                                 .background(Color.Blue)
-                                .fillMaxSize()
+                                .size(200.dp, 200.dp)
                         )
                     }
                 }
