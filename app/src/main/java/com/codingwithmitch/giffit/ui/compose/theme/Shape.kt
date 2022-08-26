@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui.theme
+package com.codingwithmitch.giffit.ui.compose.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Shapes
