@@ -189,9 +189,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-//                        Footer(state, mainLoadingState) {
-//                            backgroundAssetPickerLauncher.launch("image/*")
-//                        }
                     }
                     LoadingUI(mainLoadingState = mainLoadingState)
                     val errorEvents by viewModel.errorRelay.collectAsState()
