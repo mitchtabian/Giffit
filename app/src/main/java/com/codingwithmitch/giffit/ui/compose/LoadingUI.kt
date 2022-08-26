@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui
+package com.codingwithmitch.giffit.ui.compose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.ui.MainLoadingState
 
 @Composable
 fun LoadingUI(

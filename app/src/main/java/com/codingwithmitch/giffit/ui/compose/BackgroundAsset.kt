@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui
+package com.codingwithmitch.giffit.ui.compose
 
 import android.net.Uri
 import android.view.View
@@ -6,7 +6,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,7 +26,7 @@ import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.domain.util.AssetData
 import com.codingwithmitch.giffit.domain.DataState
-import com.codingwithmitch.giffit.ui.compose.RecordActionBar
+import com.codingwithmitch.giffit.ui.MainLoadingState
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -136,47 +135,6 @@ fun RenderBackground(
             assetData = assetData,
             screenWidthDp = screenWidthDp,
             assetContainerHeightDp = assetContainerHeightDp
-        )
-    }
-}
-
-@Composable
-fun RecordButton(
-    modifier: Modifier,
-    isRecording: Boolean,
-    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
-    startBitmapCaptureJob: () -> Unit,
-) {
-    Button(
-        modifier = modifier
-            .wrapContentWidth()
-        ,
-        colors = if (isRecording) {
-            ButtonDefaults.buttonColors(
-                backgroundColor = Color.Red
-            )
-        } else {
-            ButtonDefaults.buttonColors(
-                backgroundColor = MaterialTheme.colors.primary
-            )
-        },
-        onClick = {
-            val newJobState = when(isRecording) {
-                true -> DataState.Loading.LoadingState.Idle
-                false -> DataState.Loading.LoadingState.Active()
-            }
-            updateBitmapCaptureJobState(newJobState)
-            if (newJobState is DataState.Loading.LoadingState.Active) { // Start recording
-                startBitmapCaptureJob()
-            }
-        }
-    ) {
-        Text(
-            text = if (isRecording) {
-                "End"
-            } else {
-                "Record"
-            }
         )
     }
 }

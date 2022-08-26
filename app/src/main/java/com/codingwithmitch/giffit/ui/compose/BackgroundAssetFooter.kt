@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui
+package com.codingwithmitch.giffit.ui.compose
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.ui.MainLoadingState
 
 @Composable
 fun BackgroundAssetFooter(

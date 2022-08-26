@@ -5,8 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.LinearProgressIndicator
-import androidx.compose.material.MaterialTheme
+import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,7 +15,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.ui.MainLoadingState.*
-import com.codingwithmitch.giffit.ui.RecordButton
 
 @Composable
 fun RecordActionBar(
@@ -63,6 +61,47 @@ fun RecordActionBar(
             startBitmapCaptureJob = {
                 startBitmapCaptureJob(view)
             },
+        )
+    }
+}
+
+@Composable
+fun RecordButton(
+    modifier: Modifier,
+    isRecording: Boolean,
+    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
+    startBitmapCaptureJob: () -> Unit,
+) {
+    Button(
+        modifier = modifier
+            .wrapContentWidth()
+        ,
+        colors = if (isRecording) {
+            ButtonDefaults.buttonColors(
+                backgroundColor = Color.Red
+            )
+        } else {
+            ButtonDefaults.buttonColors(
+                backgroundColor = MaterialTheme.colors.primary
+            )
+        },
+        onClick = {
+            val newJobState = when(isRecording) {
+                true -> DataState.Loading.LoadingState.Idle
+                false -> DataState.Loading.LoadingState.Active()
+            }
+            updateBitmapCaptureJobState(newJobState)
+            if (newJobState is DataState.Loading.LoadingState.Active) { // Start recording
+                startBitmapCaptureJob()
+            }
+        }
+    ) {
+        Text(
+            text = if (isRecording) {
+                "End"
+            } else {
+                "Record"
+            }
         )
     }
 }

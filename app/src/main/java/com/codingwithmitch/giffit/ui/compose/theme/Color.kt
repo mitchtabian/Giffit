@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui.compose.ui
+package com.codingwithmitch.giffit.ui.compose.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui
+package com.codingwithmitch.giffit.ui.compose
 
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -16,7 +16,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
-import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 
 @Composable

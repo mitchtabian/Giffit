@@ -1,4 +1,4 @@
-package com.codingwithmitch.giffit.ui
+package com.codingwithmitch.giffit.ui.compose
 
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.background

@@ -15,8 +15,6 @@ import androidx.compose.material.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
 import com.canhub.cropper.CropImageContract
@@ -26,7 +24,8 @@ import com.canhub.cropper.options
 import com.codingwithmitch.giffit.domain.util.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import com.codingwithmitch.giffit.ui.compose.ui.GiffitTheme
+import com.codingwithmitch.giffit.ui.compose.*
+import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
