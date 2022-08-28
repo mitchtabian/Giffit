@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.lifecycleScope
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
@@ -38,6 +39,8 @@ class MainActivity : ComponentActivity() {
                         viewModel.updateState(
                             DisplayBackgroundAsset(
                                 backgroundAssetUri = it,
+                                capturingViewBounds = null,
+                                capturedBitmap = null,
                             )
                         )
                     }
@@ -77,6 +80,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     val state = viewModel.state.value
+                    val view = LocalView.current
                     Column(modifier = Modifier.fillMaxSize()) {
                         when(state) {
                             Initial -> {
@@ -92,6 +96,18 @@ class MainActivity : ComponentActivity() {
                             )
                             is DisplayBackgroundAsset -> BackgroundAsset(
                                 backgroundAssetUri = state.backgroundAssetUri,
+                                capturedBitmap = state.capturedBitmap,
+                                updateCapturingViewBounds = { rect ->
+                                    viewModel.updateState(
+                                        state.copy(capturingViewBounds = rect)
+                                    )
+                                },
+                                startBitmapCaptureJob = {
+                                    viewModel.captureScreenshot(
+                                        view = view,
+                                        window = window
+                                    )
+                                },
                                 launchImagePicker = {
                                     backgroundAssetPickerLauncher.launch("image/*")
                                 }
