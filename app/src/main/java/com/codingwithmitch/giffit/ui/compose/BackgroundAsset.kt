@@ -25,7 +25,9 @@ import com.codingwithmitch.giffit.R
 import java.lang.Math.*
 
 @Composable
-fun BackgroundAsset() {
+fun BackgroundAsset(
+    launchImagePicker: () -> Unit,
+) {
     ConstraintLayout(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -82,9 +84,8 @@ fun BackgroundAsset() {
                 .zIndex(2f)
             ,
             isRecording = isRecording,
-        ) {
-            // TODO("Launch image picker")
-        }
+            launchImagePicker = launchImagePicker
+        )
     }
 }
 
