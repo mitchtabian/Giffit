@@ -63,14 +63,16 @@ class SaveGifToExternalStorageTest {
                 emit(DataState.Loading(Idle))
             }
         )
-        viewModel.state.value = DisplayGif(
-            gifUri = uri,
-            resizedGifUri = null,
-            originalGifSize = 0,
-            adjustedBytes = 0,
-            sizePercentage = 100,
-            backgroundAssetUri = uri,
-            capturedBitmaps = listOf()
+        viewModel.updateState(
+            DisplayGif(
+                gifUri = uri,
+                resizedGifUri = null,
+                originalGifSize = 0,
+                adjustedBytes = 0,
+                sizePercentage = 100,
+                backgroundAssetUri = uri,
+                capturedBitmaps = listOf()
+            )
         )
         viewModel.saveGif(
             contentResolver = context.contentResolver,

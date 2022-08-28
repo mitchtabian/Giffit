@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
     ) { permissions ->
         permissions.entries.forEach {
             if (!it.value) {
-                Toast.makeText(this@MainActivity, "To enable this permission you'll have to do so in system settings for this app.", Toast.LENGTH_SHORT).show()
+                viewModel.showToast(message = "To enable this permission you'll have to do so in system settings for this app.")
             }
         }
     }
@@ -65,15 +65,17 @@ class MainActivity : ComponentActivity() {
                 when(val state = viewModel.state.value) {
                     is DisplaySelectBackgroundAsset,
                     is DisplayBackgroundAsset -> {
-                        viewModel.state.value = DisplayBackgroundAsset(
-                            backgroundAssetUri = it,
+                        viewModel.updateState(
+                            DisplayBackgroundAsset(
+                                backgroundAssetUri = it,
+                            )
                         )
                     }
                     else -> throw Exception("Invalid state: $state")
                 }
             }
         } else {
-            Toast.makeText(this@MainActivity, "Something went wrong cropping the image.", Toast.LENGTH_LONG).show()
+            viewModel.showToast(message = "Something went wrong cropping the image.")
         }
     }
 
@@ -94,7 +96,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // TODO("Audit this. Correct way to observe this?")
         viewModel.toastEventRelay.onEach { toastEvent ->
             if (toastEvent != null) {
                 Toast.makeText(this@MainActivity, toastEvent.message, Toast.LENGTH_LONG).show()
@@ -124,7 +125,9 @@ class MainActivity : ComponentActivity() {
                         when(state) {
                             Initial -> {
                                 LoadingUI(mainLoadingState = MainLoadingState.Standard(Active()))
-                                viewModel.state.value = DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                                viewModel.updateState(
+                                    DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                                )
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
                                 backgroundAssetPickerLauncher = backgroundAssetPickerLauncher
@@ -179,7 +182,9 @@ class MainActivity : ComponentActivity() {
                                     backgroundAssetUri = state.backgroundAssetUri,
                                     assetData = state.assetData,
                                     updateCapturingViewBounds = { rect ->
-                                        viewModel.state.value = state.copy(capturingViewBounds = rect)
+                                        viewModel.updateState(
+                                            state.copy(capturingViewBounds = rect)
+                                        )
                                     },
                                     bitmapCapture = mainLoadingState,
                                     launchImagePicker = {

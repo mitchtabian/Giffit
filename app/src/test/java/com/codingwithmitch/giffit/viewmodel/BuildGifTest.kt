@@ -61,10 +61,12 @@ class BuildGifTest {
         viewModel.verifyInitialState()
         val file = File("${RealCacheProvider(context).gifCache().path}/who_cares.gif")
         val uri = file.toUri()
-        viewModel.state.value = DisplayBackgroundAsset(
-            backgroundAssetUri = uri,
-            capturingViewBounds = null,
-            capturedBitmaps = bitmaps
+        viewModel.updateState(
+            DisplayBackgroundAsset(
+                backgroundAssetUri = uri,
+                capturingViewBounds = null,
+                capturedBitmaps = bitmaps
+            )
         )
         val gifSize = 1234
         whenever(

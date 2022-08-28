@@ -67,7 +67,7 @@ class CaptureBitmapsTest {
             capturingViewBounds = null,
             capturedBitmaps = listOf()
         )
-        viewModel.state.value = mainState
+        viewModel.updateState(mainState)
         whenever(
             captureBitmaps.execute(any(), any(), any())
         ).doReturn(

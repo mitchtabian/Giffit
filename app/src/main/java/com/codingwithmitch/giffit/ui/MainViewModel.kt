@@ -6,6 +6,7 @@ import android.view.View
 import android.view.Window
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.ViewModel
@@ -38,7 +39,8 @@ constructor(
     private val clearGifCache: ClearGifCache,
 ): ViewModel() {
 
-    val state: MutableState<MainState> = mutableStateOf(Initial)
+    private val _state: MutableState<MainState> = mutableStateOf(Initial)
+    val state: State<MainState> get() = _state
     val loadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(Idle))
     private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
     val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
@@ -89,7 +91,7 @@ constructor(
             clearCachedFiles()
 
             // reset state to displaying the selected background asset.
-            state.value = DisplayBackgroundAsset(
+            _state.value = DisplayBackgroundAsset(
                 backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
             )
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
@@ -116,7 +118,7 @@ constructor(
                         updateLoadingState(ResizingGif(dataState.loadingState))
                     }
                     is DataState.Data -> {
-                        state.value = (state.value as DisplayGif).copy(
+                        _state.value = (state.value as DisplayGif).copy(
                             resizedGifUri = dataState.data
                         )
                     }
@@ -164,7 +166,7 @@ constructor(
            when(dataState) {
                is DataState.Data -> {
                    dataState.data?.let { bitmaps ->
-                       state.value = (state.value as DisplayBackgroundAsset).copy(
+                       _state.value = (state.value as DisplayBackgroundAsset).copy(
                            capturedBitmaps = bitmaps
                        )
                    }
@@ -224,7 +226,7 @@ constructor(
                 is DataState.Data -> {
                     (state.value as DisplayBackgroundAsset).let {
                         val gifSize = dataState.data?.gifSize ?: 0
-                        state.value = DisplayGif(
+                        _state.value = DisplayGif(
                             gifUri = dataState.data?.uri,
                             resizedGifUri = null,
                             originalGifSize = gifSize,
@@ -258,7 +260,7 @@ constructor(
             resizedGifUri?.let {
                 discardCachedGif(it)
             }
-            state.value = this.copy(
+            _state.value = this.copy(
                 resizedGifUri = null,
                 adjustedBytes = originalGifSize,
                 sizePercentage = 100
@@ -269,21 +271,21 @@ constructor(
     fun deleteGif() {
         clearCachedFiles()
         check(state.value is DisplayGif) { "deleteGif: Invalid state: ${state.value}" }
-        state.value = DisplayBackgroundAsset(
+        _state.value = DisplayBackgroundAsset(
             backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
         )
     }
 
     fun updateAdjustedBytes(adjustedBytes: Int) {
         check(state.value is DisplayGif) { "updateAdjustedBytes: Invalid state: ${state.value}" }
-        state.value = (state.value as DisplayGif).copy(
+        _state.value = (state.value as DisplayGif).copy(
             adjustedBytes = adjustedBytes
         )
     }
 
     fun updateSizePercentage(sizePercentage: Int) {
         check(state.value is DisplayGif) { "updateSizePercentage: Invalid state: ${state.value}" }
-        state.value = (state.value as DisplayGif).copy(
+       _state.value = (state.value as DisplayGif).copy(
             sizePercentage = sizePercentage
         )
     }
@@ -298,7 +300,7 @@ constructor(
         _errorRelay.value = setOf()
     }
 
-    private fun showToast(
+    fun showToast(
         id: String = UUID.randomUUID().toString(),
         message: String
     ) {
@@ -308,6 +310,10 @@ constructor(
                 message = message
             )
         )
+    }
+
+    fun updateState(mainState: MainState) {
+        _state.value = mainState
     }
 
     private fun updateLoadingState(loadingState: MainLoadingState) {
