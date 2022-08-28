@@ -48,7 +48,12 @@ class MainViewModel : ViewModel() {
                     _state.value = state.copy(capturedBitmap = result.bitmap)
                 }
                 is PixelCopyJob.PixelCopyJobState.Error -> {
-                    throw Exception(result.message)
+                    publishErrorEvent(
+                        ErrorEvent(
+                            id = UUID.randomUUID().toString(),
+                            message = result.message
+                        )
+                    )
                 }
             }
         }
