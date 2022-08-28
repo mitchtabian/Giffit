@@ -1,6 +1,5 @@
 package com.codingwithmitch.giffit.ui.compose
 
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,7 +32,6 @@ import java.lang.Math.*
 @Composable
 fun BackgroundAsset(
     backgroundAssetUri: Uri,
-    capturedBitmap: Bitmap?,
     updateCapturingViewBounds: (Rect) -> Unit,
     startBitmapCaptureJob: () -> Unit,
     launchImagePicker: () -> Unit,
@@ -82,7 +80,6 @@ fun BackgroundAsset(
             ,
             updateCapturingViewBounds = updateCapturingViewBounds,
             backgroundAssetUri = backgroundAssetUri,
-            capturedBitmap = capturedBitmap,
             assetContainerHeightDp = assetContainerHeight
         )
 
@@ -110,7 +107,6 @@ fun BackgroundAsset(
 fun RenderBackground(
     modifier: Modifier,
     backgroundAssetUri: Uri,
-    capturedBitmap: Bitmap?,
     updateCapturingViewBounds: (Rect) -> Unit,
     assetContainerHeightDp: Int,
 ) {
@@ -118,11 +114,7 @@ fun RenderBackground(
         modifier = modifier
             .wrapContentSize()
     ) {
-        val painter = if (capturedBitmap != null) {
-            rememberAsyncImagePainter(model = capturedBitmap)
-        } else {
-            rememberAsyncImagePainter(model = backgroundAssetUri)
-        }
+        val painter = rememberAsyncImagePainter(model = backgroundAssetUri)
         Image(
             modifier = Modifier
                 .fillMaxWidth()

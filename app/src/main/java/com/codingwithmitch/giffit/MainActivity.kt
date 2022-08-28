@@ -40,7 +40,6 @@ class MainActivity : ComponentActivity() {
                             DisplayBackgroundAsset(
                                 backgroundAssetUri = it,
                                 capturingViewBounds = null,
-                                capturedBitmap = null,
                             )
                         )
                     }
@@ -96,14 +95,13 @@ class MainActivity : ComponentActivity() {
                             )
                             is DisplayBackgroundAsset -> BackgroundAsset(
                                 backgroundAssetUri = state.backgroundAssetUri,
-                                capturedBitmap = state.capturedBitmap,
                                 updateCapturingViewBounds = { rect ->
                                     viewModel.updateState(
                                         state.copy(capturingViewBounds = rect)
                                     )
                                 },
                                 startBitmapCaptureJob = {
-                                    viewModel.captureScreenshot(
+                                    viewModel.runBitmapCaptureJob(
                                         view = view,
                                         window = window
                                     )

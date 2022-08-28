@@ -13,7 +13,6 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 import kotlin.math.roundToInt
 
 interface CaptureBitmaps {
@@ -37,7 +36,6 @@ interface CaptureBitmaps {
  * This makes things a little annoying because [PixelCopy.request] has a callback we need to use.
  */
 class CaptureBitmapsInteractor
-@Inject
 constructor(
     private val pixelCopyJob: PixelCopyJob,
 ): CaptureBitmaps {

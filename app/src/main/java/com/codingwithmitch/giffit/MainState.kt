@@ -16,6 +16,6 @@ sealed class MainState {
     data class DisplayBackgroundAsset(
         val backgroundAssetUri: Uri,
         val capturingViewBounds: Rect? = null,
-        val capturedBitmap: Bitmap?
+        val capturedBitmaps: List<Bitmap> = listOf(),
     ): MainState()
 }
