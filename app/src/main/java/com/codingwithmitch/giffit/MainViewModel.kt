@@ -15,6 +15,8 @@ class MainViewModel : ViewModel() {
     val state: State<MainState> get() = _state
     private val _toastEventRelay: MutableStateFlow<ToastEvent?> = MutableStateFlow(null)
     val toastEventRelay: StateFlow<ToastEvent?> get() = _toastEventRelay
+    private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
+    val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
 
     fun updateState(mainState: MainState) {
         _state.value = mainState
@@ -30,5 +32,15 @@ class MainViewModel : ViewModel() {
                 message = message
             )
         )
+    }
+
+    private fun publishErrorEvent(errorEvent: ErrorEvent) {
+        val current = _errorRelay.value.toMutableSet()
+        current.add(errorEvent)
+        _errorRelay.value = current
+    }
+
+    fun clearErrorEvents() {
+        _errorRelay.value = setOf()
     }
 }
