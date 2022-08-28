@@ -10,9 +10,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
@@ -21,6 +20,8 @@ import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 class MainActivity : ComponentActivity() {
 
@@ -34,15 +35,17 @@ class MainActivity : ComponentActivity() {
                 when(val state = viewModel.state.value) {
                     is DisplaySelectBackgroundAsset,
                     is DisplayBackgroundAsset -> {
-                        viewModel.state.value = DisplayBackgroundAsset(
-                            backgroundAssetUri = it,
+                        viewModel.updateState(
+                            DisplayBackgroundAsset(
+                                backgroundAssetUri = it,
+                            )
                         )
                     }
                     else -> throw Exception("Invalid state: $state")
                 }
             }
         } else {
-            Toast.makeText(this@MainActivity, "Something went wrong cropping the image.", Toast.LENGTH_LONG).show()
+            viewModel.showToast(message = "Something went wrong cropping the image.")
         }
     }
 
@@ -60,6 +63,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        viewModel.toastEventRelay.onEach { toastEvent ->
+            if (toastEvent != null) {
+                Toast.makeText(this@MainActivity, toastEvent.message, Toast.LENGTH_LONG).show()
+            }
+        }.launchIn(lifecycleScope)
+
         setContent {
             GiffitTheme {
                 Surface(
@@ -71,7 +81,9 @@ class MainActivity : ComponentActivity() {
                         when(state) {
                             Initial -> {
                                 // TODO("Show loading UI")
-                                viewModel.state.value = DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                                viewModel.updateState(
+                                    DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                                )
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
                                 launchImagePicker = {
