@@ -8,6 +8,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import com.codingwithmitch.giffit.MainState.*
+import com.codingwithmitch.giffit.interactors.CaptureBitmaps
+import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor
 import com.codingwithmitch.giffit.interactors.PixelCopyJob
 import com.codingwithmitch.giffit.interactors.PixelCopyJobInteractor
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +23,9 @@ class MainViewModel : ViewModel() {
 
     private val dispatcher = IO
     private val pixelCopy: PixelCopyJob = PixelCopyJobInteractor()
+    private val captureBitmaps: CaptureBitmaps = CaptureBitmapsInteractor(
+        pixelCopyJob = pixelCopy
+    )
 
     private val _state: MutableState<MainState> = mutableStateOf(Initial)
     val state: State<MainState> get() = _state
