@@ -1,8 +1,6 @@
 package com.codingwithmitch.giffit
 
-import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -13,7 +11,9 @@ import androidx.compose.material.Surface
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
+import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
 
 class MainActivity : ComponentActivity() {
@@ -21,11 +21,18 @@ class MainActivity : ComponentActivity() {
     private val backgroundAssetPickerLauncher: ActivityResultLauncher<String> = this@MainActivity.registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) {
-        backgroundAssetUri.value = it
-        Log.d("TAG", "Got the URI: ${it}")
+        when(val state = _state.value) {
+            is DisplaySelectBackgroundAsset,
+            is DisplayBackgroundAsset -> {
+                _state.value = DisplayBackgroundAsset(
+                    backgroundAssetUri = it,
+                )
+            }
+            else -> throw Exception("Invalid state: $state")
+        }
     }
 
-    private val backgroundAssetUri: MutableState<Uri?> = mutableStateOf(null)
+    private val _state: MutableState<MainState> = mutableStateOf(Initial)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,11 +42,26 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    BackgroundAsset(
-                        launchImagePicker = {
-                            backgroundAssetPickerLauncher.launch("image/*")
+                    val state = _state.value
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        when(state) {
+                            Initial -> {
+                                // TODO("Show loading UI")
+                                _state.value = DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                            }
+                            is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
+                                launchImagePicker = {
+                                    backgroundAssetPickerLauncher.launch("image/*")
+                                }
+                            )
+                            is DisplayBackgroundAsset -> BackgroundAsset(
+                                backgroundAssetUri = state.backgroundAssetUri,
+                                launchImagePicker = {
+                                    backgroundAssetPickerLauncher.launch("image/*")
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
         }

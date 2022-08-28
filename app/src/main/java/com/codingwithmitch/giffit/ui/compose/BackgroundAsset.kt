@@ -1,5 +1,6 @@
 package com.codingwithmitch.giffit.ui.compose
 
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -26,6 +27,7 @@ import java.lang.Math.*
 
 @Composable
 fun BackgroundAsset(
+    backgroundAssetUri: Uri,
     launchImagePicker: () -> Unit,
 ) {
     ConstraintLayout(
@@ -66,6 +68,7 @@ fun BackgroundAsset(
                 }
                 .zIndex(1f)
             ,
+            backgroundAssetUri = backgroundAssetUri,
             assetContainerHeightDp = assetContainerHeight
         )
 
@@ -92,12 +95,14 @@ fun BackgroundAsset(
 @Composable
 fun RenderBackground(
     modifier: Modifier,
+    backgroundAssetUri: Uri,
     assetContainerHeightDp: Int,
 ) {
     Box(
         modifier = modifier
             .wrapContentSize()
     ) {
+        // TODO("Show image using backgroundAssetUri")
         val backgroundAsset = painterResource(R.drawable.mitch)
         Image(
             modifier = Modifier
