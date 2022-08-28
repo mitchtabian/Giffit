@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
 interface CaptureBitmaps {
 
     /**
-     * @param window is only required if [Build.VERSION_CODES] >= [Build.VERSION_CODES.N].
+     * @param window is only required if [Build.VERSION_CODES] >= [Build.VERSION_CODES.O].
      *  Otherwise this can be null.
      */
     fun execute(
@@ -49,8 +49,8 @@ abstract class CaptureBitmapsModule {
 /**
  * Interactor for capturing a list of bitmaps by screenshotting the device every [CAPTURE_INTERVAL_MS].
  *
- * The way we capture a screenshot diverges for [Build.VERSION_CODES] >= [Build.VERSION_CODES.N].
- * We must use [PixelCopy] for API level 24 (N) and above.
+ * The way we capture a screenshot diverges for [Build.VERSION_CODES] >= [Build.VERSION_CODES.O].
+ * We must use [PixelCopy] for API level 26 (O) and above.
  * This makes things a little annoying because [PixelCopy.request] has a callback we need to use.
  */
 class CaptureBitmapsInteractor
@@ -79,7 +79,7 @@ constructor(
                 delay(CAPTURE_INTERVAL_MS.toLong())
                 elapsedTime += CAPTURE_INTERVAL_MS
                 emit(Loading(Active(elapsedTime / TOTAL_CAPTURE_TIME_MS)))
-                val bitmap = if (versionProvider.provideVersion() >= Build.VERSION_CODES.N) {
+                val bitmap = if (versionProvider.provideVersion() >= Build.VERSION_CODES.O) {
                     check(window != null) { "Window is required for PixelCopy." }
                     val pixelCopyJobState = pixelCopyJob.execute(
                         capturingViewBounds = capturingViewBounds,
@@ -112,7 +112,7 @@ constructor(
     }
 
     /**
-     * Capture a screenshot on API < [Build.VERSION_CODES.N].
+     * Capture a screenshot on API < [Build.VERSION_CODES.O].
      */
     private fun captureBitmap(
         rect: Rect?,

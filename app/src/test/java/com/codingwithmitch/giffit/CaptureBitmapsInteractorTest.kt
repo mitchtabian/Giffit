@@ -46,14 +46,14 @@ class CaptureBitmapsInteractorTest {
     }
 
     @Test
-    fun `verify captureBitmapsInteractor API 24+ success`() = runTest {
+    fun `verify captureBitmapsInteractor API 26+ success`() = runTest {
         val rect = Rect(0f, 0f, 5f, 5f)
         val view: View = mock {
             on { width } doReturn rect.width.toInt()
             on { height } doReturn rect.height.toInt()
         }
 
-        whenever(versionProvider.provideVersion()).thenReturn(Build.VERSION_CODES.N)
+        whenever(versionProvider.provideVersion()).thenReturn(Build.VERSION_CODES.O)
         whenever(pixelCopyJob.execute(any(), any(), any())).thenReturn(Done(bitmaps[0]))
         val emissions = captureBitmapsInteractor.execute(
             capturingViewBounds = rect,
@@ -65,17 +65,17 @@ class CaptureBitmapsInteractorTest {
     }
 
     @Test
-    fun `verify captureBitmapsInteractor API 23- success`() = runTest {
+    fun `verify captureBitmapsInteractor API 26- success`() = runTest {
         val rect = Rect(0f, 0f, 5f, 5f)
         val view: View = mock {
             on { width } doReturn rect.width.toInt()
             on { height } doReturn rect.height.toInt()
         }
 
-        whenever(versionProvider.provideVersion()).thenReturn(Build.VERSION_CODES.M)
+        whenever(versionProvider.provideVersion()).thenReturn(Build.VERSION_CODES.N_MR1)
         val emissions = captureBitmapsInteractor.execute(
             capturingViewBounds = rect,
-            window = null, // Not used for API 23 and below
+            window = null, // Not used for API 25 and below
             view = view
         ).toList()
 
