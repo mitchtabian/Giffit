@@ -40,6 +40,13 @@ class MainViewModel : ViewModel() {
         _errorRelay.value = current
     }
 
+    fun removeErrorEvent(id: String) {
+        val current = _errorRelay.value.toMutableSet()
+        val eventToRemove = current.find { it.id == id }
+        current.remove(eventToRemove)
+        _errorRelay.value = current
+    }
+
     fun clearErrorEvents() {
         _errorRelay.value = setOf()
     }
