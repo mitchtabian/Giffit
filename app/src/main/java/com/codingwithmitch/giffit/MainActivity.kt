@@ -106,6 +106,8 @@ class MainActivity : ComponentActivity() {
                                         window = window
                                     )
                                 },
+                                endBitmapCaptureJob = viewModel::endBitmapCaptureJob,
+                                bitmapCaptureLoadingState = state.bitmapCaptureLoadingState,
                                 launchImagePicker = {
                                     backgroundAssetPickerLauncher.launch("image/*")
                                 }

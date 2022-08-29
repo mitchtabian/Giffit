@@ -1,6 +1,5 @@
 package com.codingwithmitch.giffit
 
-import android.annotation.SuppressLint
 import android.util.Log
 import android.view.View
 import android.view.Window
@@ -11,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
@@ -41,36 +41,44 @@ class MainViewModel : ViewModel() {
         view: View,
         window: Window
     ) {
-        val state = state.value
-        check(state is DisplayBackgroundAsset) { "Invalid state: ${state}" }
+        check(state.value is DisplayBackgroundAsset) { "Invalid state: ${state}" }
+        updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Active(0f)))
+
         // We need a way to stop the job if a user presses "STOP". So create a Job for this.
         val bitmapCaptureJob = Job()
         // Create convenience function for checking if the user pressed "STOP".
-        val checkShouldCancelJob: () -> Unit = {  ->
-            // TODO("Add logic for determining if state is correct before canceling")
-//            bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
+        val checkShouldCancelJob: (MainState) -> Unit = { mainState ->
+            val shouldCancel = when(mainState) {
+                is DisplayBackgroundAsset -> {
+                    mainState.bitmapCaptureLoadingState !is Active
+                }
+                else -> true
+            }
+            if (shouldCancel) {
+                bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
+            }
         }
         // Execute the use-case.
         captureBitmaps.execute(
-            capturingViewBounds = state.capturingViewBounds,
+            capturingViewBounds = (state.value as DisplayBackgroundAsset).capturingViewBounds,
             window = window,
             view = view,
         ).onEach { dataState ->
             // If the user hits the "STOP" button, complete the job by canceling.
-            checkShouldCancelJob()
+            // Also cancel if there was some kind of state change.
+            checkShouldCancelJob(state.value)
             when(dataState) {
                 is DataState.Data -> {
                     dataState.data?.let { bitmaps ->
-                        _state.value = state.copy(
-                            capturedBitmaps = bitmaps
-                        )
+                        updateState((state.value as DisplayBackgroundAsset).copy(capturedBitmaps = bitmaps))
                     }
                 }
                 is DataState.Error -> {
                     // For this use-case, if an error occurs we need to stop the job.
                     // Otherwise it will keep trying to capture bitmaps and failing over and over.
                     bitmapCaptureJob.cancel(CAPTURE_BITMAP_ERROR)
-                    // TODO("Update loading state")
+
+                    updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
                     publishErrorEvent(
                         ErrorEvent(
                             id = UUID.randomUUID().toString(),
@@ -79,11 +87,11 @@ class MainViewModel : ViewModel() {
                     )
                 }
                 is DataState.Loading -> {
-                    // TODO("Update loading state")
+                    updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = dataState.loadingState))
                 }
             }
         }.flowOn(dispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
-            // TODO("Update loading state")
+            updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
             val onSuccess: () -> Unit = {
                 // TODO("Build the gif from the list of captured bitmaps")
                 val newState = _state.value
@@ -108,6 +116,10 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    fun endBitmapCaptureJob() {
+        updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
     }
 
     fun updateState(mainState: MainState) {

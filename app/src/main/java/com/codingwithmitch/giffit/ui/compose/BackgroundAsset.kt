@@ -27,6 +27,8 @@ import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.R
+import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import java.lang.Math.*
 
 @Composable
@@ -34,6 +36,8 @@ fun BackgroundAsset(
     backgroundAssetUri: Uri,
     updateCapturingViewBounds: (Rect) -> Unit,
     startBitmapCaptureJob: () -> Unit,
+    endBitmapCaptureJob: () -> Unit,
+    bitmapCaptureLoadingState: DataState.Loading.LoadingState,
     launchImagePicker: () -> Unit,
 ) {
     ConstraintLayout(
@@ -43,7 +47,6 @@ fun BackgroundAsset(
 
         // Top bar
         // topBarHeight = (default app bar height) + (button padding)
-        var isRecording by remember { mutableStateOf(false) }
         val topBarHeight = remember { 56 + 16 }
         RecordActionBar(
             modifier = Modifier
@@ -56,14 +59,9 @@ fun BackgroundAsset(
                 }
                 .zIndex(2f)
             ,
-            isRecording = isRecording,
-            updateIsRecording = {
-                isRecording = it
-                if (isRecording) {
-                    startBitmapCaptureJob()
-                    isRecording = false
-                }
-            }
+            bitmapCaptureLoadingState = bitmapCaptureLoadingState,
+            startBitmapCaptureJob = startBitmapCaptureJob,
+            endBitmapCaptureJob = endBitmapCaptureJob
         )
 
         // Gif capture area
@@ -97,7 +95,7 @@ fun BackgroundAsset(
                 }
                 .zIndex(2f)
             ,
-            isRecording = isRecording,
+            isRecording = bitmapCaptureLoadingState is Active,
             launchImagePicker = launchImagePicker
         )
     }
