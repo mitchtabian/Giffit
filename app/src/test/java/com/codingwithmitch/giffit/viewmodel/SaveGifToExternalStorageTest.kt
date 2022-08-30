@@ -5,7 +5,6 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.interactors.*
-import com.codingwithmitch.giffit.ui.MainLoadingState.*
 import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.ui.MainViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -84,8 +83,8 @@ class SaveGifToExternalStorageTest {
         testDispatcher.scheduler.advanceTimeBy(500)
         verify(saveGifToExternalStorage).execute(any(), any(), any(), any())
         assertThat(
-            viewModel.loadingState.value,
-            equalTo(Standard(Active()))
+            (viewModel.state.value as DisplayGif).loadingState,
+            equalTo(Active())
         )
 
         // Advance past second delay
@@ -100,7 +99,8 @@ class SaveGifToExternalStorageTest {
                     adjustedBytes = 0,
                     sizePercentage = 100,
                     backgroundAssetUri = uri,
-                    capturedBitmaps = listOf()
+                    capturedBitmaps = listOf(),
+                    loadingState = Active()
                 )
             )
         )
@@ -112,8 +112,8 @@ class SaveGifToExternalStorageTest {
         // Advance past third delay
         testDispatcher.scheduler.advanceTimeBy(500)
         assertThat(
-            viewModel.loadingState.value,
-            equalTo(Standard(Idle))
+            (viewModel.state.value as DisplayBackgroundAsset).loadingState,
+            equalTo(Idle)
         )
         verify(clearGifCache).execute()
         assertThat(

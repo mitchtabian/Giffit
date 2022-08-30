@@ -85,8 +85,8 @@ class BuildGifTest {
         testDispatcher.scheduler.advanceTimeBy(500)
         verify(buildGif).execute(any(), any())
         assertThat(
-            viewModel.loadingState.value,
-            equalTo(Standard(Active()))
+            (viewModel.state.value as DisplayBackgroundAsset).loadingState,
+            equalTo(Active())
         )
 
         // Advance past second delay
@@ -109,8 +109,8 @@ class BuildGifTest {
         // Advance past third delay
         testDispatcher.scheduler.advanceTimeBy(500)
         assertThat(
-            viewModel.loadingState.value,
-            equalTo(Standard(Idle))
+            (viewModel.state.value as DisplayGif).loadingState,
+            equalTo(Idle)
         )
     }
 }

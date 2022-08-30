@@ -7,7 +7,6 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps
-import com.codingwithmitch.giffit.ui.MainLoadingState.*
 import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.ui.MainViewModel
 import com.codingwithmitch.giffit.util.buildBitmap
@@ -64,7 +63,7 @@ class CaptureBitmapsTest {
         val uri = file.toUri()
         val mainState = DisplayBackgroundAsset(
             backgroundAssetUri = uri,
-            capturingViewBounds = null,
+            capturingViewBounds = Rect(1f, 2f ,1f, 2f),
             capturedBitmaps = listOf()
         )
         viewModel.updateState(mainState)
@@ -81,7 +80,6 @@ class CaptureBitmapsTest {
         )
         viewModel.runBitmapCaptureJob(
             contentResolver = context.contentResolver,
-            capturingViewBounds = Rect(1f, 2f ,1f, 2f),
             window = mock(),
             view = mock()
         )
@@ -90,8 +88,8 @@ class CaptureBitmapsTest {
         testDispatcher.scheduler.advanceTimeBy(500)
         verify(captureBitmaps).execute(any(), any(), any())
         assertThat(
-            viewModel.loadingState.value,
-            equalTo(BitmapCapture(Active(0.0f)))
+            (viewModel.state.value as DisplayBackgroundAsset).bitmapCaptureLoadingState,
+            equalTo(Active(0.0f))
         )
 
         // Advance past second delay
@@ -99,15 +97,18 @@ class CaptureBitmapsTest {
         assertThat(
             viewModel.state.value,
             equalTo(
-                mainState.copy(capturedBitmaps = bitmaps)
+                mainState.copy(
+                    capturedBitmaps = bitmaps,
+                    bitmapCaptureLoadingState = Active()
+                )
             )
         )
 
         // Advance past third delay
         testDispatcher.scheduler.advanceTimeBy(500)
         assertThat(
-            viewModel.loadingState.value,
-            equalTo(Standard(Idle))
+            (viewModel.state.value as DisplayBackgroundAsset).bitmapCaptureLoadingState,
+            equalTo(Idle)
         )
     }
 }

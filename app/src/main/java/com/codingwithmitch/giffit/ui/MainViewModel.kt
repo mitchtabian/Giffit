@@ -84,9 +84,6 @@ constructor(
                 }
             }
         }.onCompletion {
-            updateState(
-                (state.value as DisplayGif).copy(loadingState = Idle)
-            )
             // Whether or not this succeeds we want to clear the cache.
             // Because if something goes wrong we want to reset anyway.
             clearCachedFiles()
