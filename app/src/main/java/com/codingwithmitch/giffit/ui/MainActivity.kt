@@ -15,6 +15,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.lifecycleScope
 import coil.ImageLoader
 import com.canhub.cropper.CropImageContract
@@ -23,7 +24,6 @@ import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.domain.util.BitmapUtils.checkFilePermissions
 import com.codingwithmitch.giffit.ui.MainState.*
-import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.ui.compose.*
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -120,11 +120,10 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     val state = viewModel.state.value
-                    val mainLoadingState = viewModel.loadingState.value
                     Column(modifier = Modifier.fillMaxSize()) {
                         when(state) {
-                            Initial -> {
-                                LoadingUI(mainLoadingState = MainLoadingState.Standard(Active()))
+                            is Initial -> {
+                                StandardLoadingUI(loadingState = state.loadingState)
                                 viewModel.updateState(
                                     DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
                                 )
@@ -158,26 +157,24 @@ class MainActivity : ComponentActivity() {
                                     viewModel.resizeGif(
                                         contentResolver = contentResolver,
                                     )
-                                }
+                                },
+                                loadingState = state.loadingState,
+                                gifResizingLoadingState = state.resizeGifLoadingState
                             )
                             is DisplayBackgroundAsset -> {
-                                val bitmapCaptureLoadingState = when (mainLoadingState) {
-                                    is MainLoadingState.BitmapCapture -> mainLoadingState
-                                    else -> null
-                                }
+                                val view = LocalView.current
                                 BackgroundAsset(
-                                    bitmapCaptureLoadingState = bitmapCaptureLoadingState,
-                                    updateBitmapCaptureJobState = {
-                                        viewModel.loadingState.value =
-                                            MainLoadingState.BitmapCapture(it)
-                                    },
-                                    startBitmapCaptureJob = { view ->
+                                    startBitmapCaptureJob = {
                                         viewModel.runBitmapCaptureJob(
                                             contentResolver = contentResolver,
-                                            capturingViewBounds = state.capturingViewBounds,
-                                            window = window,
                                             view = view,
+                                            window = window,
                                         )
+                                    },
+                                    endBitmapCaptureJob = viewModel::endBitmapCaptureJob,
+                                    bitmapCaptureLoadingState = state.bitmapCaptureLoadingState,
+                                    launchImagePicker = {
+                                        backgroundAssetPickerLauncher.launch("image/*")
                                     },
                                     backgroundAssetUri = state.backgroundAssetUri,
                                     assetData = state.assetData,
@@ -186,15 +183,11 @@ class MainActivity : ComponentActivity() {
                                             state.copy(capturingViewBounds = rect)
                                         )
                                     },
-                                    bitmapCapture = mainLoadingState,
-                                    launchImagePicker = {
-                                        backgroundAssetPickerLauncher.launch("image/*")
-                                    }
+                                    loadingState = state.loadingState
                                 )
                             }
                         }
                     }
-                    LoadingUI(mainLoadingState = mainLoadingState)
                     val errorEvents by viewModel.errorRelay.collectAsState()
                     ErrorEventHandler(
                         errorEvents = errorEvents,

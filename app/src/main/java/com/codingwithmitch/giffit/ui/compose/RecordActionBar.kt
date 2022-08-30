@@ -1,6 +1,5 @@
 package com.codingwithmitch.giffit.ui.compose
 
-import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,15 +12,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import com.codingwithmitch.giffit.domain.DataState
-import com.codingwithmitch.giffit.ui.MainLoadingState.*
+import com.codingwithmitch.giffit.domain.DataState.Loading.*
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 
 @Composable
 fun RecordActionBar(
     modifier: Modifier,
-    bitmapCaptureLoadingState: BitmapCapture?,
-    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
-    startBitmapCaptureJob: (View) -> Unit,
+    bitmapCaptureLoadingState: LoadingState,
+    startBitmapCaptureJob: () -> Unit,
+    endBitmapCaptureJob: () -> Unit,
 ) {
     val view = LocalView.current
     Row(
@@ -33,8 +32,8 @@ fun RecordActionBar(
                 .height(50.dp)
                 .background(Color.Transparent)
         ) {
-            when(val loadingState = bitmapCaptureLoadingState?.loadingState) {
-                is DataState.Loading.LoadingState.Active -> {
+            when(bitmapCaptureLoadingState) {
+                is Active -> {
                     LinearProgressIndicator(
                         modifier = Modifier
                             .border(width = 1.dp, color = Color.Black, shape = RoundedCornerShape(4.dp))
@@ -44,23 +43,18 @@ fun RecordActionBar(
                             .padding(end = 16.dp)
                             .clip(RoundedCornerShape(4.dp))
                         ,
-                        progress = loadingState.progress ?: 0f,
+                        progress = bitmapCaptureLoadingState.progress ?: 0f,
                         backgroundColor = Color.White,
                         color = MaterialTheme.colors.primary
                     )
                 }
             }
         }
-        val isRecording = bitmapCaptureLoadingState != null &&
-                bitmapCaptureLoadingState.loadingState is DataState.Loading.LoadingState.Active &&
-                (bitmapCaptureLoadingState.loadingState.progress ?: 0f) > 0f
         RecordButton(
             modifier = Modifier.weight(1f),
-            isRecording = isRecording,
-            updateBitmapCaptureJobState = updateBitmapCaptureJobState,
-            startBitmapCaptureJob = {
-                startBitmapCaptureJob(view)
-            },
+            bitmapCaptureLoadingState = bitmapCaptureLoadingState,
+            startBitmapCaptureJob = startBitmapCaptureJob,
+            endBitmapCaptureJob = endBitmapCaptureJob,
         )
     }
 }
@@ -68,10 +62,14 @@ fun RecordActionBar(
 @Composable
 fun RecordButton(
     modifier: Modifier,
-    isRecording: Boolean,
-    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
+    bitmapCaptureLoadingState: LoadingState,
     startBitmapCaptureJob: () -> Unit,
+    endBitmapCaptureJob: () -> Unit,
 ) {
+    val isRecording = when(bitmapCaptureLoadingState) {
+        is Active -> true
+        Idle -> false
+    }
     Button(
         modifier = modifier
             .wrapContentWidth()
@@ -86,13 +84,10 @@ fun RecordButton(
             )
         },
         onClick = {
-            val newJobState = when(isRecording) {
-                true -> DataState.Loading.LoadingState.Idle
-                false -> DataState.Loading.LoadingState.Active()
-            }
-            updateBitmapCaptureJobState(newJobState)
-            if (newJobState is DataState.Loading.LoadingState.Active) { // Start recording
+            if (!isRecording) {
                 startBitmapCaptureJob()
+            } else {
+                endBitmapCaptureJob()
             }
         }
     ) {

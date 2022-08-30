@@ -9,17 +9,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.codingwithmitch.giffit.domain.DataState
-import com.codingwithmitch.giffit.ui.MainLoadingState
 
 @Composable
 fun BackgroundAssetFooter(
     modifier: Modifier,
-    bitmapCapture: MainLoadingState,
+    isRecording: Boolean,
     launchImagePicker: () -> Unit,
 ) {
     // If bitmap capture job is not running, show footer.
-    if (bitmapCapture.loadingState !is DataState.Loading.LoadingState.Active) {
+    if (!isRecording) {
         Column(
             modifier = modifier
                 .fillMaxWidth()

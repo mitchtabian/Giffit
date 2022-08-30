@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import com.codingwithmitch.giffit.domain.DataState
 
 @Composable
 fun Gif(
@@ -32,7 +33,11 @@ fun Gif(
     sizePercentage: Int,
     updateSizePercentage: (Int) -> Unit,
     resizeGif: () -> Unit,
+    loadingState: DataState.Loading.LoadingState,
+    gifResizingLoadingState: DataState.Loading.LoadingState,
 ) {
+    StandardLoadingUI(loadingState = loadingState)
+    ResizingGifLoadingUI(gifResizingLoadingState = gifResizingLoadingState)
     val configuration = LocalConfiguration.current
     Box(
         modifier = Modifier

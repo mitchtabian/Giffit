@@ -6,7 +6,6 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.interactors.BuildGif
-import com.codingwithmitch.giffit.ui.MainLoadingState.*
 import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.ui.MainViewModel
 import com.codingwithmitch.giffit.util.buildBitmap

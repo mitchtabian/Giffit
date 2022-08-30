@@ -1,7 +1,6 @@
 package com.codingwithmitch.giffit.ui.compose
 
 import android.net.Uri
-import android.view.View
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
@@ -25,22 +24,22 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.domain.util.AssetData
-import com.codingwithmitch.giffit.domain.DataState
-import com.codingwithmitch.giffit.ui.MainLoadingState
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState
+import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
 fun BackgroundAsset(
-    bitmapCaptureLoadingState: MainLoadingState.BitmapCapture?,
-    updateBitmapCaptureJobState: (DataState.Loading.LoadingState) -> Unit,
-    startBitmapCaptureJob: (View) -> Unit,
+    startBitmapCaptureJob: () -> Unit,
+    endBitmapCaptureJob: () -> Unit,
+    bitmapCaptureLoadingState: LoadingState,
     backgroundAssetUri: Uri,
     assetData: AssetData,
     updateCapturingViewBounds: (Rect) -> Unit,
-    bitmapCapture: MainLoadingState,
     launchImagePicker: () -> Unit,
+    loadingState: LoadingState,
 ) {
     ConstraintLayout(
         modifier = Modifier.fillMaxSize()
@@ -62,8 +61,8 @@ fun BackgroundAsset(
                 .zIndex(2f)
             ,
             bitmapCaptureLoadingState = bitmapCaptureLoadingState,
-            updateBitmapCaptureJobState = updateBitmapCaptureJobState,
-            startBitmapCaptureJob = startBitmapCaptureJob
+            startBitmapCaptureJob = startBitmapCaptureJob,
+            endBitmapCaptureJob = endBitmapCaptureJob
         )
 
         // Gif capture area
@@ -84,6 +83,7 @@ fun BackgroundAsset(
             screenWidthDp = configuration.screenWidthDp,
             assetContainerHeightDp = assetContainerHeight
         )
+        StandardLoadingUI(loadingState = loadingState)
 
         // Bottom container
         val bottomContainerHeight = remember { configuration.screenHeightDp - assetContainerHeight - topBarHeight }
@@ -99,7 +99,7 @@ fun BackgroundAsset(
                 }
                 .zIndex(2f)
             ,
-            bitmapCapture = bitmapCapture
+            isRecording = bitmapCaptureLoadingState is Active,
         ) {
             launchImagePicker()
         }

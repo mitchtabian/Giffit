@@ -1,5 +1,6 @@
 package com.codingwithmitch.giffit.ui.compose
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,34 +14,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.codingwithmitch.giffit.domain.DataState
-import com.codingwithmitch.giffit.ui.MainLoadingState
+import androidx.compose.ui.zIndex
+import com.codingwithmitch.giffit.domain.DataState.Loading.*
 
 @Composable
-fun LoadingUI(
-    mainLoadingState: MainLoadingState,
+fun StandardLoadingUI(
+    loadingState: LoadingState,
 ) {
-    when(mainLoadingState) {
-        is MainLoadingState.Standard -> {
-            when(mainLoadingState.loadingState) {
-                is DataState.Loading.LoadingState.Active -> {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(50.dp)
-                                .align(Alignment.Center),
-                            color = Color.Blue,
-                            strokeWidth = 4.dp
-                        )
-                    }
-                }
-            }
-        }
-        is MainLoadingState.ResizingGif -> {
-            when(val loadingState = mainLoadingState.loadingState) {
-                is DataState.Loading.LoadingState.Active -> {
-                    ResizingGifProgressBar(loadingState.progress ?: 0f)
-                }
+    when(loadingState) {
+        is LoadingState.Active -> {
+            Log.d("TAG", "StandardLoadingUI: ACTIVE!!!")
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .zIndex(3f)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .align(Alignment.Center),
+                    color = Color.Blue,
+                    strokeWidth = 4.dp
+                )
             }
         }
     }
@@ -50,36 +45,41 @@ fun LoadingUI(
  * @param progress: value between 0..100 representing the progress of the resize job.
  */
 @Composable
-fun ResizingGifProgressBar(
-    progress: Float,
+fun ResizingGifLoadingUI(
+    gifResizingLoadingState: LoadingState
 ){
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        Column(
+    if (gifResizingLoadingState is LoadingState.Active && gifResizingLoadingState.progress != null) {
+        Log.d("TAG", "ResizingGifLoadingUI: RESIZING!!!")
+        Box(
             modifier = Modifier
-                .wrapContentSize()
-                .align(Alignment.Center)
-                .padding(horizontal = 16.dp)
+                .fillMaxSize()
+                .background(Color.Black)
         ) {
-            Text(
-                modifier = Modifier.align(Alignment.Start).padding(vertical = 12.dp),
-                text = "Resizing gif...",
-                style = MaterialTheme.typography.h5,
-                color = Color.White
-            )
-            LinearProgressIndicator(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                ,
-                progress = progress,
-                backgroundColor = Color.White,
-                color = MaterialTheme.colors.primary
-            )
+                    .wrapContentSize()
+                    .align(Alignment.Center)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    modifier = Modifier
+                        .align(Alignment.Start)
+                        .padding(vertical = 12.dp),
+                    text = "Resizing gif...",
+                    style = MaterialTheme.typography.h5,
+                    color = Color.White
+                )
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                    ,
+                    progress = gifResizingLoadingState.progress,
+                    backgroundColor = Color.White,
+                    color = MaterialTheme.colors.primary
+                )
+            }
         }
     }
 }

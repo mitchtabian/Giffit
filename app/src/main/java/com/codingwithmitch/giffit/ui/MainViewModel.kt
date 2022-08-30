@@ -8,10 +8,8 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.codingwithmitch.giffit.ui.MainLoadingState.*
 import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.di.IO
 import com.codingwithmitch.giffit.domain.DataState
@@ -39,9 +37,8 @@ constructor(
     private val clearGifCache: ClearGifCache,
 ): ViewModel() {
 
-    private val _state: MutableState<MainState> = mutableStateOf(Initial)
+    private val _state: MutableState<MainState> = mutableStateOf(Initial(Active()))
     val state: State<MainState> get() = _state
-    val loadingState: MutableState<MainLoadingState> = mutableStateOf(Standard(Idle))
     private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
     val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
     private val _toastEventRelay: MutableStateFlow<ToastEvent?> = MutableStateFlow(null)
@@ -73,7 +70,9 @@ constructor(
                     showToast(message = "Saved")
                 }
                 is DataState.Loading -> {
-                    updateLoadingState(Standard(dataState.loadingState))
+                    updateState(
+                        (state.value as DisplayGif).copy(loadingState = dataState.loadingState)
+                    )
                 }
                 is DataState.Error -> {
                     publishErrorEvent(
@@ -85,7 +84,9 @@ constructor(
                 }
             }
         }.onCompletion {
-            updateLoadingState(Standard(Idle))
+            updateState(
+                (state.value as DisplayGif).copy(loadingState = Idle)
+            )
             // Whether or not this succeeds we want to clear the cache.
             // Because if something goes wrong we want to reset anyway.
             clearCachedFiles()
@@ -115,7 +116,9 @@ constructor(
             ).onEach { dataState ->
                 when(dataState) {
                     is DataState.Loading -> {
-                        updateLoadingState(ResizingGif(dataState.loadingState))
+                        updateState(
+                            (state.value as DisplayGif).copy(resizeGifLoadingState = dataState.loadingState)
+                        )
                     }
                     is DataState.Data -> {
                         _state.value = (state.value as DisplayGif).copy(
@@ -132,50 +135,53 @@ constructor(
                     }
                 }
             }.onCompletion {
-                loadingState.value = Standard(Idle)
+                updateState(
+                    (state.value as DisplayGif).copy(loadingState = Idle)
+                )
             }.flowOn(ioDispatcher).launchIn(viewModelScope)
         }
     }
 
    fun runBitmapCaptureJob(
        contentResolver: ContentResolver,
-       capturingViewBounds: Rect?,
        window: Window,
        view: View?,
    ) {
        check(state.value is DisplayBackgroundAsset) { "runBitmapCaptureJob: Invalid state: ${state.value}" }
-       updateLoadingState(BitmapCapture(Active(0f)))
+       updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Active(0f)))
        // We need a way to stop the job if a user presses "STOP". So create a Job for this.
        val bitmapCaptureJob = Job()
        // Create convenience function for checking if the user pressed "STOP".
-       val checkShouldCancelJob: (MainLoadingState) -> Unit = { loadingState ->
-           if (loadingState is BitmapCapture) {
-               if (loadingState.loadingState !is Active) {
-                   bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
+       val checkShouldCancelJob: (MainState) -> Unit = { mainState ->
+           val shouldCancel = when(mainState) {
+               is DisplayBackgroundAsset -> {
+                   mainState.bitmapCaptureLoadingState !is Active
                }
+               else -> true
+           }
+           if (shouldCancel) {
+               bitmapCaptureJob.cancel(CAPTURE_BITMAP_SUCCESS)
            }
        }
        // Execute the use-case.
        captureBitmaps.execute(
-           capturingViewBounds = capturingViewBounds,
+           capturingViewBounds = (state.value as DisplayBackgroundAsset).capturingViewBounds,
            window = window,
            view = view,
        ).onEach { dataState ->
            // If the user hits the "STOP" button, complete the job by canceling.
-           checkShouldCancelJob(loadingState.value)
+           checkShouldCancelJob(state.value)
            when(dataState) {
                is DataState.Data -> {
                    dataState.data?.let { bitmaps ->
-                       _state.value = (state.value as DisplayBackgroundAsset).copy(
-                           capturedBitmaps = bitmaps
-                       )
+                       updateState((state.value as DisplayBackgroundAsset).copy(capturedBitmaps = bitmaps))
                    }
                }
                is DataState.Error -> {
                    // For this use-case, if an error occurs we need to stop the job.
                    // Otherwise it will keep trying to capture bitmaps and failing over and over.
                    bitmapCaptureJob.cancel(CAPTURE_BITMAP_ERROR)
-                   loadingState.value = None
+                   updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
                    publishErrorEvent(
                        ErrorEvent(
                            id = UUID.randomUUID().toString(),
@@ -184,11 +190,11 @@ constructor(
                    )
                }
                is DataState.Loading -> {
-                   updateLoadingState(BitmapCapture(dataState.loadingState))
+                   updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = dataState.loadingState))
                }
            }
        }.flowOn(ioDispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
-           updateLoadingState(Standard(Idle))
+           updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
            val onSuccess: () -> Unit = {
                buildGif(contentResolver = contentResolver)
            }
@@ -217,7 +223,9 @@ constructor(
         check(state.value is DisplayBackgroundAsset) { "buildGif: Invalid state: ${state.value}" }
         val capturedBitmaps = (state.value as DisplayBackgroundAsset).capturedBitmaps
         check(capturedBitmaps.isNotEmpty()) { "You have no bitmaps to build a gif from!" }
-        loadingState.value = Standard(Active())
+        updateState(
+            (state.value as DisplayBackgroundAsset).copy(loadingState = Active())
+        )
         buildGif.execute(
             contentResolver = contentResolver,
             bitmaps = capturedBitmaps,
@@ -226,14 +234,16 @@ constructor(
                 is DataState.Data -> {
                     (state.value as DisplayBackgroundAsset).let {
                         val gifSize = dataState.data?.gifSize ?: 0
-                        _state.value = DisplayGif(
-                            gifUri = dataState.data?.uri,
-                            resizedGifUri = null,
-                            originalGifSize = gifSize,
-                            adjustedBytes = gifSize,
-                            sizePercentage = 100,
-                            backgroundAssetUri = it.backgroundAssetUri,
-                            capturedBitmaps = it.capturedBitmaps
+                        updateState(
+                            DisplayGif(
+                                gifUri = dataState.data?.uri,
+                                resizedGifUri = null,
+                                originalGifSize = gifSize,
+                                adjustedBytes = gifSize,
+                                sizePercentage = 100,
+                                backgroundAssetUri = it.backgroundAssetUri,
+                                capturedBitmaps = it.capturedBitmaps
+                            )
                         )
                     }
                 }
@@ -244,13 +254,20 @@ constructor(
                             message = dataState.message
                         )
                     )
+                    updateState(
+                        (state.value as DisplayBackgroundAsset).copy(loadingState = Idle)
+                    )
                 }
                 is DataState.Loading -> {
-                    updateLoadingState(Standard(dataState.loadingState))
+                    // Need to check here since there is a state change to DisplayGif and loading
+                    //  emissions can technically still come after the job is complete
+                    if (state.value is DisplayBackgroundAsset) {
+                        updateState(
+                            (state.value as DisplayBackgroundAsset).copy(loadingState = dataState.loadingState)
+                        )
+                    }
                 }
             }
-        }.onCompletion {
-            loadingState.value = Standard(Idle)
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
 
@@ -266,6 +283,10 @@ constructor(
                 sizePercentage = 100
             )
         }
+    }
+
+    fun endBitmapCaptureJob() {
+        updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
     }
 
     fun deleteGif() {
@@ -314,10 +335,6 @@ constructor(
 
     fun updateState(mainState: MainState) {
         _state.value = mainState
-    }
-
-    private fun updateLoadingState(loadingState: MainLoadingState) {
-        this.loadingState.value = loadingState
     }
 
     companion object {
