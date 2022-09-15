@@ -13,5 +13,6 @@ sealed class MainState {
 
     data class DisplayBackgroundAsset(
         val backgroundAssetUri: Uri,
+        val backgroundAssetPickerLauncher: ActivityResultLauncher<String>
     ): MainState()
 }
