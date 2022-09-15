@@ -4,18 +4,54 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageView
+import com.canhub.cropper.options
 import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val cropAssetLauncher = registerForActivityResult(
+        CropImageContract()
+    ) { result ->
+        if (result.isSuccessful) {
+            result.uriContent?.let {
+                when(val state = _state.value) {
+                    is DisplaySelectBackgroundAsset,
+                    is DisplayBackgroundAsset -> {
+                        _state.value = DisplayBackgroundAsset(
+                            backgroundAssetUri = it
+                        )
+                    }
+                    else -> throw Exception("Invalid state: $state")
+                }
+            }
+        } else {
+            Toast.makeText(this, "Something went wrong cropping the image.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val backgroundAssetPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            cropAssetLauncher.launch(
+                options(uri = it) {
+                    setGuidelines(CropImageView.Guidelines.ON)
+                }
+            )
+        } ?: Toast.makeText(this, "Something went wrong selecting an image.", Toast.LENGTH_LONG).show()
+    }
 
     private val _state: MutableState<MainState> = mutableStateOf(Initial)
 
@@ -32,37 +68,17 @@ class MainActivity : ComponentActivity() {
                         when(state) {
                             Initial -> {
                                 // TODO("Show loading UI")
-                                _state.value = DisplaySelectBackgroundAsset(
-                                    backgroundAssetPickerLauncher = buildBackgroundAssetPickerLauncher(
-                                        onSuccess = {
-                                            when(state) {
-                                                is DisplaySelectBackgroundAsset -> {
-                                                    _state.value = DisplayBackgroundAsset(
-                                                        backgroundAssetUri = it,
-                                                        backgroundAssetPickerLauncher = state.backgroundAssetPickerLauncher
-                                                    )
-                                                }
-                                                is DisplayBackgroundAsset -> {
-                                                    _state.value = state.copy(backgroundAssetUri = it)
-                                                }
-                                                else -> throw Exception("Invalid state: $state")
-                                            }
-                                        },
-                                        onFailure = {
-                                            Toast.makeText(this@MainActivity, "Something went wrong when selecting the image.", Toast.LENGTH_LONG).show()
-                                        }
-                                    )
-                                )
+                                _state.value = DisplaySelectBackgroundAsset
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
                                 launchImagePicker = {
-                                    state.backgroundAssetPickerLauncher.launch("image/*")
+                                    backgroundAssetPickerLauncher.launch("image/*")
                                 }
                             )
                             is DisplayBackgroundAsset -> BackgroundAsset(
                                 backgroundAssetUri = state.backgroundAssetUri,
                                 launchImagePicker = {
-                                    state.backgroundAssetPickerLauncher.launch("image/*")
+                                    backgroundAssetPickerLauncher.launch("image/*")
                                 }
                             )
                         }
