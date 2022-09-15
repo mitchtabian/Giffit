@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                             Initial -> {
                                 // TODO("Show loading UI")
                                 viewModel.updateState(
-                                    DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                                    DisplaySelectBackgroundAsset
                                 )
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
