@@ -51,14 +51,14 @@ class MainActivity : ComponentActivity() {
 
     private val backgroundAssetPickerLauncher: ActivityResultLauncher<String> = this@MainActivity.registerForActivityResult(
         ActivityResultContracts.GetContent()
-    ) {
-        cropAssetLauncher.launch(
-            options(
-                uri = it,
-            ) {
-                setGuidelines(CropImageView.Guidelines.ON)
-            }
-        )
+    ) { uri ->
+        uri?.let {
+            cropAssetLauncher.launch(
+                options(uri = it) {
+                    setGuidelines(CropImageView.Guidelines.ON)
+                }
+            )
+        } ?: viewModel.showToast(message = "Something went wrong selecting the image.")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
                             Initial -> {
                                 // TODO("Show loading UI")
                                 viewModel.updateState(
-                                    DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
+                                    DisplaySelectBackgroundAsset
                                 )
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
