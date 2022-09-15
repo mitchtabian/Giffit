@@ -18,9 +18,7 @@ sealed class MainState {
         val loadingState: LoadingState = Idle
     ): MainState()
 
-    data class DisplaySelectBackgroundAsset(
-        val backgroundAssetPickerLauncher: ActivityResultLauncher<String>,
-    ): MainState()
+    object DisplaySelectBackgroundAsset: MainState()
 
     data class DisplayGif(
         val gifUri: Uri?,

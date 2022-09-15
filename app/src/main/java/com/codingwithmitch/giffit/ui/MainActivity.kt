@@ -124,9 +124,7 @@ class MainActivity : ComponentActivity() {
                         when(state) {
                             is Initial -> {
                                 StandardLoadingUI(loadingState = state.loadingState)
-                                viewModel.updateState(
-                                    DisplaySelectBackgroundAsset(backgroundAssetPickerLauncher)
-                                )
+                                viewModel.updateState(DisplaySelectBackgroundAsset)
                             }
                             is DisplaySelectBackgroundAsset -> SelectBackgroundAsset(
                                 backgroundAssetPickerLauncher = backgroundAssetPickerLauncher
