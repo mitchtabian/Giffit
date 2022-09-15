@@ -7,9 +7,7 @@ sealed class MainState {
 
     object Initial: MainState()
 
-    data class DisplaySelectBackgroundAsset(
-        val backgroundAssetPickerLauncher: ActivityResultLauncher<String>
-    ): MainState()
+    object DisplaySelectBackgroundAsset: MainState()
 
     data class DisplayBackgroundAsset(
         val backgroundAssetUri: Uri,
