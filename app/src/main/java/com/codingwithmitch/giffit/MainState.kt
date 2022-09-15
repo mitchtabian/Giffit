@@ -2,9 +2,7 @@ package com.codingwithmitch.giffit
 
 import android.graphics.Bitmap
 import android.net.Uri
-import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.ui.geometry.Rect
-import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 
@@ -12,9 +10,7 @@ sealed class MainState {
 
     object Initial: MainState()
 
-    data class DisplaySelectBackgroundAsset(
-        val backgroundAssetPickerLauncher: ActivityResultLauncher<String>
-    ): MainState()
+    object DisplaySelectBackgroundAsset: MainState()
 
     data class DisplayBackgroundAsset(
         val backgroundAssetUri: Uri,
