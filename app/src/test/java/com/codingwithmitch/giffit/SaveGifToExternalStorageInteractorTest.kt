@@ -77,11 +77,11 @@ class SaveGifToExternalStorageInteractorTest {
 
         val returnedUri = (emissions[1] as DataState.Data<Uri>).data
         val file = File(returnedUri?.path)
-        val expectedFile = File(externalUri?.path)
+        val expectedFile = File("${externalUri.path}/1")
 
         // Confirm the emissions are correct.
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(file.path, equalTo("${expectedFile.path}/1"))
+        assertThat(file.path, equalTo(expectedFile.path))
         assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
 
         // API 29+ these should never be called.
@@ -137,11 +137,11 @@ class SaveGifToExternalStorageInteractorTest {
 
         val returnedUri = (emissions[1] as DataState.Data<Uri>).data
         val file = File(returnedUri?.path)
-        val expectedFile = File(externalUri?.path)
+        val expectedFile = File("${externalUri.path}/1")
 
         // Confirm the emissions are correct.
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(file.path, equalTo("${expectedFile.path}/1"))
+        assertThat(file.path, equalTo(expectedFile.path))
         assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
 
         // checkFilePermissions should be called once.
