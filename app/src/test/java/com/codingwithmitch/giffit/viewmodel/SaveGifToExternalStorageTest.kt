@@ -52,12 +52,12 @@ class SaveGifToExternalStorageTest {
         val file = File("${RealCacheProvider(context).gifCache().path}/who_cares.gif")
         val uri = file.toUri()
         whenever(
-            saveGifToExternalStorage.execute(any(), any(), any(), any())
+            saveGifToExternalStorage.execute(any(), any(), any(), any(), any())
         ).doReturn(
             flow {
                 emit(DataState.Loading(Active()))
                 delay(500)
-                emit(DataState.Data(uri))
+                emit(DataState.Data(Unit))
                 delay(500)
                 emit(DataState.Loading(Idle))
             }
@@ -75,13 +75,14 @@ class SaveGifToExternalStorageTest {
         )
         viewModel.saveGif(
             contentResolver = context.contentResolver,
+            context = context,
             launchPermissionRequest = {},
             checkFilePermissions = { true }
         )
 
         // Advance past first delay
         testDispatcher.scheduler.advanceTimeBy(500)
-        verify(saveGifToExternalStorage).execute(any(), any(), any(), any())
+        verify(saveGifToExternalStorage).execute(any(), any(), any(), any(), any())
         assertThat(
             (viewModel.state.value as DisplayGif).loadingState,
             equalTo(Active())

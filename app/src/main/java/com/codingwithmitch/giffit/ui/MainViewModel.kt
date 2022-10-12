@@ -1,6 +1,7 @@
 package com.codingwithmitch.giffit.ui
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.view.View
 import android.view.Window
@@ -52,6 +53,7 @@ constructor(
 
     fun saveGif(
         contentResolver: ContentResolver,
+        context: Context,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
     ) {
@@ -61,6 +63,7 @@ constructor(
         } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
         saveGifToExternalStorage.execute(
             contentResolver = contentResolver,
+            context = context,
             cachedUri = uriToSave,
             launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions

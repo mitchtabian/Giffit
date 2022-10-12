@@ -3,30 +3,39 @@ package com.codingwithmitch.giffit.interactors
 import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.content.Context
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
-import com.codingwithmitch.giffit.domain.util.FileNameBuilder
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
+import com.codingwithmitch.giffit.domain.util.FileNameBuilder
+import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.saveGifToExternalStorage
+import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.saveGifToScopedStorage
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.io.File
+import java.io.FileOutputStream
 import javax.inject.Inject
+
 
 interface SaveGifToExternalStorage {
     fun execute(
         contentResolver: ContentResolver,
+        context: Context,
         cachedUri: Uri,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
-    ): Flow<DataState<Uri>>
+    ): Flow<DataState<Unit>>
 }
 
 @Module
@@ -57,28 +66,30 @@ constructor(
     @SuppressLint("NewApi")
     override fun execute(
         contentResolver: ContentResolver,
+        context: Context,
         cachedUri: Uri,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
-    ): Flow<DataState<Uri>> = flow {
+    ): Flow<DataState<Unit>> = flow {
         try {
             emit(Loading(Active()))
             when {
                 // If API >= 29 we can use scoped storage and don't require permission to save images.
                 versionProvider.provideVersion() >= Build.VERSION_CODES.Q -> {
-                    val uri = saveGifToScopedStorage(
+                    saveGifToScopedStorage(
                         contentResolver = contentResolver,
                         cachedUri = cachedUri
                     )
-                    emit(Data(uri))
+                    emit(Data(Unit))
                 }
                 // Scoped storage doesn't exist before Android 29 so need to check permissions
                 checkFilePermissions() -> {
-                    val uri = saveGifToExternalStorage(
+                    saveGifToExternalStorage(
                         contentResolver = contentResolver,
+                        context = context,
                         cachedUri = cachedUri
                     )
-                    emit(Data(uri))
+                    emit(Data(Unit))
                 }
                 // If we made it this far, read/write permission has not been accepted.
                 else -> launchPermissionRequest()
@@ -108,25 +119,26 @@ constructor(
          */
         fun saveGifToExternalStorage(
             contentResolver: ContentResolver,
+            context: Context,
             cachedUri: Uri,
-        ): Uri {
+        ) {
             // Get bytes from cached file
             val bytes = getBytesFromUri(
                 contentResolver = contentResolver,
                 uri = cachedUri
             )
-            // Add content values so media is discoverable by android and added to common directories.
-            val contentValues = ContentValues()
+            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
             val fileName = FileNameBuilder.buildFileName()
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.gif")
-            return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)?.let { uri ->
-                contentResolver.openOutputStream(uri)?.let { os ->
-                    os.write(bytes)
-                    os.flush()
-                    os.close()
-                    uri
-                } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
-            } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
+            val fileSavePath = File(picturesDir, "$fileName.gif")
+            picturesDir.mkdirs()
+            val fos = FileOutputStream(fileSavePath)
+            fos.write(bytes)
+            fos.close()
+
+            // Tell the media scanner about the new file so that it is
+            // immediately available to the user. Otherwise you'll have to restart the device to see it
+            MediaScannerConnection.scanFile(context, arrayOf(fileSavePath.toString()), null) { _, _ ->
+            }
         }
 
         /**
@@ -136,7 +148,7 @@ constructor(
         fun saveGifToScopedStorage(
             contentResolver: ContentResolver,
             cachedUri: Uri,
-        ): Uri {
+        ) {
             // Get bytes from cached file
             val bytes = getBytesFromUri(
                 contentResolver = contentResolver,
@@ -153,7 +165,6 @@ constructor(
                 os.write(bytes)
                 os.flush()
                 os.close()
-                uri
             } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
         }
     }

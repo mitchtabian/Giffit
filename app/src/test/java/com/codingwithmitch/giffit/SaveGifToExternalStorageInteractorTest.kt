@@ -62,26 +62,21 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Configure ContentResolver. This is required in unit tests with Roboelectric.
         // Otherwise the inputstream will not write anything.
-        val externalUri: Uri =
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val shadowContentResolver = Shadows.shadowOf(contentResolver)
         shadowContentResolver.registerInputStream(cachedUri, ByteArrayInputStream(ByteArray(byteArray.size)))
 
         // Save to external storage
         val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = contentResolver,
+            context = context,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
-        val returnedUri = (emissions[1] as DataState.Data<Uri>).data
-        val file = File(returnedUri?.path)
-        val expectedFile = File("${externalUri.path}/1")
-
         // Confirm the emissions are correct.
         assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(file.path, equalTo(expectedFile.path))
+        assertThat(emissions[1], equalTo(DataState.Data<Unit>(Unit)))
         assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
 
         // API 29+ these should never be called.
@@ -123,26 +118,23 @@ class SaveGifToExternalStorageInteractorTest {
 
         // Configure ContentResolver. This is required in unit tests with Roboelectric.
         // Otherwise the inputstream will not write anything.
-        val externalUri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val shadowContentResolver = Shadows.shadowOf(contentResolver)
         shadowContentResolver.registerInputStream(cachedUri, ByteArrayInputStream(ByteArray(byteArray.size)))
 
         // Save to external storage
         val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = contentResolver,
+            context = context,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
-        val returnedUri = (emissions[1] as DataState.Data<Uri>).data
-        val file = File(returnedUri?.path)
-        val expectedFile = File("${externalUri.path}/1")
 
         // Confirm the emissions are correct.
-        assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(file.path, equalTo(expectedFile.path))
-        assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+        assertThat(emissions[0], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Data<Unit>(Unit)))
+        assertThat(emissions[2], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Idle)))
 
         // checkFilePermissions should be called once.
         verify(checkFilePermissions, times(1)).invoke()
@@ -188,14 +180,15 @@ class SaveGifToExternalStorageInteractorTest {
         // been accepted.
         val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = contentResolver,
+            context = context,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
         // Confirm the emissions are correct.
-        assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+        assertThat(emissions[0], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Idle)))
 
         // checkFilePermissions should be called once.
         verify(checkFilePermissions, times(1)).invoke()
@@ -242,15 +235,16 @@ class SaveGifToExternalStorageInteractorTest {
         // Save to external storage
         val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = badContentResolver,
+            context = context,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
         // Confirm the emissions are correct.
-        assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Error<Uri>("Something is busted")))
-        assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+        assertThat(emissions[0], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Error<Unit>("Something is busted")))
+        assertThat(emissions[2], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Idle)))
 
         // API 29+ these should never be called.
         verify(launchPermissionRequest, never()).invoke()
@@ -289,23 +283,24 @@ class SaveGifToExternalStorageInteractorTest {
         // Create mock launchPermissionRequest so we can verify it's never called
         val launchPermissionRequest: () -> Unit = mock()
 
-        // Force an exception when trying to insert the Uri
+        // Force an exception when trying to open an InputStream.
         val badContentResolver: ContentResolver = mock {
-            on { insert(any(), any()) } doThrow IllegalArgumentException("Something is busted")
+            on { openInputStream(any()) } doThrow IllegalArgumentException("Something is busted")
         }
 
         // Save to external storage
         val emissions = saveGifToExternalStorageInteractor.execute(
             contentResolver = badContentResolver,
+            context = context,
             cachedUri = cachedUri,
             launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
         // Confirm the emissions are correct.
-        assertThat(emissions[0], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Error<Uri>("Something is busted")))
-        assertThat(emissions[2], equalTo(DataState.Loading<Uri>(DataState.Loading.LoadingState.Idle)))
+        assertThat(emissions[0], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Active())))
+        assertThat(emissions[1], equalTo(DataState.Error<Unit>("Something is busted")))
+        assertThat(emissions[2], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Idle)))
 
         // Check file permissions is called once if API <= 28
         verify(checkFilePermissions, times(1)).invoke()

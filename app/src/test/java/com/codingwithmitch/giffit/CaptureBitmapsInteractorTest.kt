@@ -10,8 +10,11 @@ import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor
 import com.codingwithmitch.giffit.interactors.PixelCopyJob
 import com.codingwithmitch.giffit.interactors.PixelCopyJob.PixelCopyJobState.*
 import com.codingwithmitch.giffit.util.buildBitmap
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.core.IsEqual.equalTo
@@ -40,13 +43,9 @@ class CaptureBitmapsInteractorTest {
         bmps.toList()
     }
 
-    @Before
-    fun init() {
-        captureBitmapsInteractor = CaptureBitmapsInteractor(versionProvider, pixelCopyJob)
-    }
-
     @Test
     fun `verify captureBitmapsInteractor API 26+ success`() = runTest {
+        captureBitmapsInteractor = CaptureBitmapsInteractor(versionProvider, pixelCopyJob, StandardTestDispatcher())
         val rect = Rect(0f, 0f, 5f, 5f)
         val view: View = mock {
             on { width } doReturn rect.width.toInt()
@@ -64,8 +63,13 @@ class CaptureBitmapsInteractorTest {
         verifyBitmapEmissions(emissions)
     }
 
+    /**
+     * This test cannot use [runTest] because it switches to the main thread when writing to the canvas.
+     */
     @Test
-    fun `verify captureBitmapsInteractor API 26- success`() = runTest {
+    fun `verify captureBitmapsInteractor API 26- success`() {
+        val dispatcher = StandardTestDispatcher()
+        captureBitmapsInteractor = CaptureBitmapsInteractor(versionProvider, pixelCopyJob, dispatcher)
         val rect = Rect(0f, 0f, 5f, 5f)
         val view: View = mock {
             on { width } doReturn rect.width.toInt()
@@ -73,17 +77,21 @@ class CaptureBitmapsInteractorTest {
         }
 
         whenever(versionProvider.provideVersion()).thenReturn(Build.VERSION_CODES.N_MR1)
-        val emissions = captureBitmapsInteractor.execute(
-            capturingViewBounds = rect,
-            window = null, // Not used for API 25 and below
-            view = view
-        ).toList()
 
-        verifyBitmapEmissions(emissions)
+        CoroutineScope(dispatcher).launch {
+            val emissions = captureBitmapsInteractor.execute(
+                capturingViewBounds = rect,
+                window = mock(), // Not used for API 25 and below
+                view = view
+            ).toList()
+
+            verifyBitmapEmissions(emissions)
+        }
     }
 
     @Test
     fun `null viewBounds throws Exception`() = runTest {
+        captureBitmapsInteractor = CaptureBitmapsInteractor(versionProvider, pixelCopyJob, StandardTestDispatcher())
         val emissions = captureBitmapsInteractor.execute(
             capturingViewBounds = null,
             window = mock(),
@@ -97,6 +105,7 @@ class CaptureBitmapsInteractorTest {
 
     @Test
     fun `null view throws Exception`() = runTest {
+        captureBitmapsInteractor = CaptureBitmapsInteractor(versionProvider, pixelCopyJob, StandardTestDispatcher())
         val emissions = captureBitmapsInteractor.execute(
             capturingViewBounds = Rect(1f, 1f, 1f, 1f),
             window = mock(),

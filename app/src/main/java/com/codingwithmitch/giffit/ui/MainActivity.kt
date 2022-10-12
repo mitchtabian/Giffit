@@ -31,7 +31,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 
-@OptIn(ExperimentalMaterialApi::class)
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -138,6 +137,7 @@ class MainActivity : ComponentActivity() {
                                 onSavedGif = {
                                     viewModel.saveGif(
                                         contentResolver = contentResolver,
+                                        context = this@MainActivity,
                                         launchPermissionRequest = {
                                             launchPermissionRequest()
                                         },
