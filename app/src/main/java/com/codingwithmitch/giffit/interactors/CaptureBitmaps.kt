@@ -10,9 +10,11 @@ import androidx.core.graphics.applyCanvas
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 interface CaptureBitmaps {
@@ -38,6 +40,7 @@ interface CaptureBitmaps {
 class CaptureBitmapsInteractor
 constructor(
     private val pixelCopyJob: PixelCopyJob,
+    private val mainDispatcher: CoroutineDispatcher,
 ): CaptureBitmaps {
 
     override fun execute(
@@ -89,10 +92,10 @@ constructor(
     /**
      * Capture a screenshot on API < [Build.VERSION_CODES.O].
      */
-    private fun captureBitmap(
+    private suspend fun captureBitmap(
         rect: Rect?,
         view: View,
-    ): Bitmap {
+    ) = withContext(mainDispatcher) {
         check(rect != null) { "Invalid capture area." }
         val bitmap = Bitmap.createBitmap(
             rect.width.roundToInt(),
@@ -102,7 +105,7 @@ constructor(
             translate(-rect.left, -rect.top)
             view.draw(this)
         }
-        return bitmap
+        return@withContext bitmap
     }
 
     companion object {
