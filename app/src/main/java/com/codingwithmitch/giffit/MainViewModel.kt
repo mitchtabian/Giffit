@@ -31,6 +31,7 @@ class MainViewModel : ViewModel() {
     private val versionProvider: VersionProvider = RealVersionProvider()
     private val captureBitmaps: CaptureBitmaps = CaptureBitmapsInteractor(
         pixelCopyJob = pixelCopy,
+        mainDispatcher = Dispatchers.Main,
         versionProvider = versionProvider
     )
 
