@@ -11,6 +11,8 @@ import androidx.lifecycle.viewModelScope
 import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.RealVersionProvider
+import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.CaptureBitmaps
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
@@ -26,8 +28,10 @@ class MainViewModel : ViewModel() {
 
     private val dispatcher = IO
     private val pixelCopy: PixelCopyJob = PixelCopyJobInteractor()
+    private val versionProvider: VersionProvider = RealVersionProvider()
     private val captureBitmaps: CaptureBitmaps = CaptureBitmapsInteractor(
-        pixelCopyJob = pixelCopy
+        pixelCopyJob = pixelCopy,
+        versionProvider = versionProvider
     )
 
     private val _state: MutableState<MainState> = mutableStateOf(Initial)

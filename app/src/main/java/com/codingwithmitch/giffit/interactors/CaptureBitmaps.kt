@@ -1,5 +1,6 @@
 package com.codingwithmitch.giffit.interactors
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Build
 import android.view.PixelCopy
@@ -10,6 +11,7 @@ import androidx.core.graphics.applyCanvas
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.VersionProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -38,8 +40,13 @@ interface CaptureBitmaps {
 class CaptureBitmapsInteractor
 constructor(
     private val pixelCopyJob: PixelCopyJob,
+    private val versionProvider: VersionProvider,
 ): CaptureBitmaps {
 
+    /**
+     * Suppress warning since we're using [VersionProvider].
+     */
+    @SuppressLint("NewApi")
     override fun execute(
         capturingViewBounds: Rect?,
         view: View?,
@@ -55,7 +62,7 @@ constructor(
                 delay(CAPTURE_INTERVAL_MS.toLong())
                 elapsedTime += CAPTURE_INTERVAL_MS
                 emit(Loading(Active(elapsedTime / TOTAL_CAPTURE_TIME_MS)))
-                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val bitmap = if (versionProvider.provideVersion() >= Build.VERSION_CODES.O) {
                     check(window != null) { "Window is required for PixelCopy." }
                     val pixelCopyJobState = pixelCopyJob.execute(
                         capturingViewBounds = capturingViewBounds,
