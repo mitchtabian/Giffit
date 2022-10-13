@@ -18,6 +18,8 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
 import com.canhub.cropper.options
 import com.codingwithmitch.giffit.MainState.*
+import com.codingwithmitch.giffit.domain.CacheProvider
+import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
@@ -66,6 +68,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // TODO("Will remove this when we add Hilt for DI.")
+        viewModel.setCacheProvider(RealCacheProvider(application))
+
         viewModel.toastEventRelay.onEach { toastEvent ->
             if (toastEvent != null) {
                 Toast.makeText(this@MainActivity, toastEvent.message, Toast.LENGTH_LONG).show()
@@ -102,6 +107,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 startBitmapCaptureJob = {
                                     viewModel.runBitmapCaptureJob(
+                                        contentResolver = contentResolver,
                                         view = view,
                                         window = window
                                     )

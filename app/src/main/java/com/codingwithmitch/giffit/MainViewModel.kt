@@ -1,5 +1,7 @@
 package com.codingwithmitch.giffit
 
+import android.app.Application
+import android.content.ContentResolver
 import android.util.Log
 import android.view.View
 import android.view.Window
@@ -9,16 +11,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.codingwithmitch.giffit.MainState.*
-import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.domain.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
-import com.codingwithmitch.giffit.domain.RealVersionProvider
-import com.codingwithmitch.giffit.domain.VersionProvider
-import com.codingwithmitch.giffit.interactors.CaptureBitmaps
-import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor
+import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_SUCCESS
-import com.codingwithmitch.giffit.interactors.PixelCopyJob
-import com.codingwithmitch.giffit.interactors.PixelCopyJobInteractor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
@@ -34,6 +31,7 @@ class MainViewModel : ViewModel() {
         mainDispatcher = Dispatchers.Main,
         versionProvider = versionProvider
     )
+    private var cacheProvider: CacheProvider? = null
 
     private val _state: MutableState<MainState> = mutableStateOf(Initial)
     val state: State<MainState> get() = _state
@@ -42,7 +40,60 @@ class MainViewModel : ViewModel() {
     private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
     val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
 
+    fun setCacheProvider(
+        cacheProvider: CacheProvider
+    ) {
+        this.cacheProvider = cacheProvider
+    }
+
+    private fun buildGif(
+        contentResolver: ContentResolver,
+    ) {
+        check(state.value is DisplayBackgroundAsset) { "buildGif: Invalid state: ${state.value}" }
+        val capturedBitmaps = (state.value as DisplayBackgroundAsset).capturedBitmaps
+        check(capturedBitmaps.isNotEmpty()) { "You have no bitmaps to build a gif from!" }
+        // TODO("Update state to show loading")
+        // TODO("This will be injected into the ViewModel later.")
+        val buildGif: BuildGif = BuildGifInteractor(
+            cacheProvider = cacheProvider!!, // !! for now to force it to work.
+            versionProvider = versionProvider
+        )
+        buildGif.execute(
+            contentResolver = contentResolver,
+            bitmaps = capturedBitmaps,
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Data -> {
+                    (state.value as DisplayBackgroundAsset).let {
+                        val gifSize = dataState.data?.gifSize ?: 0
+                        val gifUri = dataState.data?.uri
+                        // TODO("Update state to display the gif and the size of the gif.")
+                        System.out.println("GIF BUILDER: gif size ${gifSize}") // Confirming the gif builder worked
+                        System.out.println("GIF BUILDER: gif URI ${gifUri}") // Confirming the gif builder worked
+                    }
+                }
+                is DataState.Error -> {
+                    publishErrorEvent(
+                        ErrorEvent(
+                            id = UUID.randomUUID().toString(),
+                            message = dataState.message
+                        )
+                    )
+                    // TODO("Update Loading state to be Idle")
+                }
+                is DataState.Loading -> {
+                    // Need to check here since there is a state change to DisplayGif and loading
+                    //  emissions can technically still come after the job is complete
+                    if (state.value is DisplayBackgroundAsset) {
+                        // TODO("Update Loading state")
+                    }
+                }
+            }
+        }.flowOn(dispatcher).launchIn(viewModelScope)
+    }
+
     fun runBitmapCaptureJob(
+        contentResolver: ContentResolver,
         view: View,
         window: Window
     ) {
@@ -98,11 +149,7 @@ class MainViewModel : ViewModel() {
         }.flowOn(dispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
             updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
             val onSuccess: () -> Unit = {
-                // TODO("Build the gif from the list of captured bitmaps")
-                val newState = _state.value
-                if (newState is DisplayBackgroundAsset) {
-                    Log.d("TAG", "runBitmapCaptureJob: Num bitmaps: ${newState.capturedBitmaps.size}")
-                }
+                buildGif(contentResolver = contentResolver)
             }
             // If the throwable is null OR the message = CAPTURE_BITMAP_SUCCESS, it was successful.
             when (throwable) {
