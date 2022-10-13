@@ -1,6 +1,7 @@
 package com.codingwithmitch.giffit
 
 import android.content.ContentResolver
+import android.content.Context
 import android.view.View
 import android.view.Window
 import androidx.compose.runtime.MutableState
@@ -14,6 +15,7 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_SUCCESS
+import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
@@ -27,6 +29,9 @@ class MainViewModel : ViewModel() {
     private val captureBitmaps: CaptureBitmaps = CaptureBitmapsInteractor(
         pixelCopyJob = pixelCopy,
         mainDispatcher = Dispatchers.Main,
+        versionProvider = versionProvider
+    )
+    private val saveGifToExternalStorage: SaveGifToExternalStorage = SaveGifToExternalStorageInteractor(
         versionProvider = versionProvider
     )
     private var cacheProvider: CacheProvider? = null
@@ -45,12 +50,48 @@ class MainViewModel : ViewModel() {
     }
 
     fun saveGif(
+        contentResolver: ContentResolver,
+        context: Context,
         launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
     ) {
-        if (!checkFilePermissions()) {
-            launchPermissionRequest()
-        }
+        check(state.value is DisplayGif) { "saveGif: Invalid state: ${state.value}" }
+        val uriToSave = (state.value as DisplayGif).gifUri ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
+        saveGifToExternalStorage.execute(
+            contentResolver = contentResolver,
+            context = context,
+            cachedUri = uriToSave,
+            launchPermissionRequest = launchPermissionRequest,
+            checkFilePermissions = checkFilePermissions
+        ).onEach { dataState ->
+            when(dataState) {
+                is DataState.Data -> {
+                    showToast(message = "Saved")
+                }
+                is DataState.Loading -> {
+                    updateState(
+                        (state.value as DisplayGif).copy(loadingState = dataState.loadingState)
+                    )
+                }
+                is DataState.Error -> {
+                    publishErrorEvent(
+                        ErrorEvent(
+                            id = UUID.randomUUID().toString(),
+                            message = dataState.message
+                        )
+                    )
+                }
+            }
+        }.onCompletion {
+            // Whether or not this succeeds we want to clear the cache.
+            // Because if something goes wrong we want to reset anyway.
+            clearCachedFiles()
+
+            // reset state to displaying the selected background asset.
+            _state.value = DisplayBackgroundAsset(
+                backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
+            )
+        }.flowOn(dispatcher).launchIn(viewModelScope)
     }
 
     private fun buildGif(

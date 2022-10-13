@@ -29,6 +29,9 @@ sealed class MainState {
         val originalGifSize: Int,
 
         // Carry around the original background asset URI in-case user resets the gif.
-        val backgroundAssetUri: Uri
+        val backgroundAssetUri: Uri,
+
+        // Displayed as a CircularIndeterminateProgressBar overlayed in the center of the screen.
+        val loadingState: LoadingState = Idle,
     ): MainState()
 }

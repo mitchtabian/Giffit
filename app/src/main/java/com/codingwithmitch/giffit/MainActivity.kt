@@ -170,12 +170,15 @@ class MainActivity : ComponentActivity() {
                                 discardGif = viewModel::deleteGif,
                                 onSavedGif = {
                                     viewModel.saveGif(
+                                        context = this@MainActivity,
+                                        contentResolver = contentResolver,
                                         launchPermissionRequest = {
                                             launchPermissionRequest()
                                         },
-                                        checkFilePermissions = ::checkFilePermissions
+                                        checkFilePermissions = ::checkFilePermissions,
                                     )
-                                }
+                                },
+                                loadingState = state.loadingState
                             )
                         }
                     }
