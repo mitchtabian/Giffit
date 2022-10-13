@@ -50,7 +50,8 @@ class BuildGifTest {
             buildGif = buildGif,
             resizeGif = mock(),
             clearGifCache= mock(),
-            captureBitmaps= mock()
+            captureBitmaps= mock(),
+            versionProvider = mock()
         )
     }
 

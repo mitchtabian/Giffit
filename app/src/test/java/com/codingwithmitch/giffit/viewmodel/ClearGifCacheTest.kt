@@ -33,7 +33,8 @@ class ClearGifCacheTest {
             buildGif = mock(),
             resizeGif = mock(),
             clearGifCache= clearGifCache,
-            captureBitmaps = mock()
+            captureBitmaps = mock(),
+            versionProvider = mock()
         )
     }
 

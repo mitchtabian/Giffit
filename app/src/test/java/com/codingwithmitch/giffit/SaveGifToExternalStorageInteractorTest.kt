@@ -2,7 +2,6 @@ package com.codingwithmitch.giffit
 
 import android.content.ContentResolver
 import android.net.Uri
-import android.provider.MediaStore
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.domain.RealVersionProvider
@@ -21,7 +20,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows
 import java.io.ByteArrayInputStream
-import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -70,7 +68,6 @@ class SaveGifToExternalStorageInteractorTest {
             contentResolver = contentResolver,
             context = context,
             cachedUri = cachedUri,
-            launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
@@ -126,7 +123,6 @@ class SaveGifToExternalStorageInteractorTest {
             contentResolver = contentResolver,
             context = context,
             cachedUri = cachedUri,
-            launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
@@ -141,60 +137,6 @@ class SaveGifToExternalStorageInteractorTest {
 
         // launchPermissionRequest should not be called since checkFilePermissions returns true
         verify(launchPermissionRequest, never()).invoke()
-    }
-
-    @Test
-    fun `invoke launchPermissionRequest if file permission false`() = runTest {
-        val context = RuntimeEnvironment.getApplication()
-        val contentResolver = context.contentResolver
-
-        saveGifToExternalStorageInteractor = SaveGifToExternalStorageInteractor(
-            mock {
-                // Set API = 28
-                on { provideVersion() } doReturn 28
-            }
-        )
-
-        // Create a Bitmap
-        val byteArray = buildBitmapByteArray(context.resources)
-
-        // Save bitmap to internal storage
-        val cacheProvider = RealCacheProvider(context)
-        val cachedUri = saveGifToInternalStorage(
-            contentResolver = contentResolver,
-            bytes = byteArray,
-            cacheProvider = cacheProvider,
-            versionProvider = RealVersionProvider()
-        )
-
-        // User has NOT accepted read/write permission to external storage
-        val checkFilePermissions: () -> Boolean = mock {
-            on { invoke() } doReturn false
-        }
-
-        // Will be invoked since checkFilePermissions returns false
-        val launchPermissionRequest: () -> Unit = mock()
-
-        // Save to external storage
-        // We don't need to configure the ShadowContentResolver since file permission has not
-        // been accepted.
-        val emissions = saveGifToExternalStorageInteractor.execute(
-            contentResolver = contentResolver,
-            context = context,
-            cachedUri = cachedUri,
-            launchPermissionRequest = launchPermissionRequest,
-            checkFilePermissions = checkFilePermissions
-        ).toList()
-
-        // Confirm the emissions are correct.
-        assertThat(emissions[0], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Active())))
-        assertThat(emissions[1], equalTo(DataState.Loading<Unit>(DataState.Loading.LoadingState.Idle)))
-
-        // checkFilePermissions should be called once.
-        verify(checkFilePermissions, times(1)).invoke()
-
-        // launchPermissionRequest should be called once.
-        verify(launchPermissionRequest, times(1)).invoke()
     }
 
     @Test
@@ -237,7 +179,6 @@ class SaveGifToExternalStorageInteractorTest {
             contentResolver = badContentResolver,
             context = context,
             cachedUri = cachedUri,
-            launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 
@@ -293,7 +234,6 @@ class SaveGifToExternalStorageInteractorTest {
             contentResolver = badContentResolver,
             context = context,
             cachedUri = cachedUri,
-            launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).toList()
 

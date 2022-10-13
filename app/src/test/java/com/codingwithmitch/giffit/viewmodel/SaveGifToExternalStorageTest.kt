@@ -41,7 +41,8 @@ class SaveGifToExternalStorageTest {
             buildGif = mock(),
             resizeGif= mock(),
             clearGifCache= clearGifCache,
-            captureBitmaps = mock()
+            captureBitmaps = mock(),
+            versionProvider = mock()
         )
     }
 
@@ -52,7 +53,7 @@ class SaveGifToExternalStorageTest {
         val file = File("${RealCacheProvider(context).gifCache().path}/who_cares.gif")
         val uri = file.toUri()
         whenever(
-            saveGifToExternalStorage.execute(any(), any(), any(), any(), any())
+            saveGifToExternalStorage.execute(any(), any(), any(), any())
         ).doReturn(
             flow {
                 emit(DataState.Loading(Active()))
@@ -82,7 +83,7 @@ class SaveGifToExternalStorageTest {
 
         // Advance past first delay
         testDispatcher.scheduler.advanceTimeBy(500)
-        verify(saveGifToExternalStorage).execute(any(), any(), any(), any(), any())
+        verify(saveGifToExternalStorage).execute(any(), any(), any(), any())
         assertThat(
             (viewModel.state.value as DisplayGif).loadingState,
             equalTo(Active())
@@ -125,6 +126,35 @@ class SaveGifToExternalStorageTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun `verify launch permission request on API 28-`() {
+        val context = RuntimeEnvironment.getApplication()
+        viewModel.verifyInitialState()
+        val file = File("${RealCacheProvider(context).gifCache().path}/who_cares.gif")
+        val uri = file.toUri()
+        viewModel.updateState(
+            DisplayGif(
+                gifUri = uri,
+                resizedGifUri = null,
+                originalGifSize = 0,
+                adjustedBytes = 0,
+                sizePercentage = 100,
+                backgroundAssetUri = uri,
+                capturedBitmaps = listOf()
+            )
+        )
+        val launchPermissionRequest: () -> Unit = mock()
+        viewModel.saveGif(
+            contentResolver = context.contentResolver,
+            context = context,
+            launchPermissionRequest = launchPermissionRequest,
+            checkFilePermissions = { false }
+        )
+
+        // launchPermissionRequest should be called once.
+        verify(launchPermissionRequest, times(1)).invoke()
     }
 }
 

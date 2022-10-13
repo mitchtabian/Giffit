@@ -3,6 +3,7 @@ package com.codingwithmitch.giffit.ui
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.view.View
 import android.view.Window
 import androidx.annotation.VisibleForTesting
@@ -15,6 +16,7 @@ import com.codingwithmitch.giffit.ui.MainState.*
 import com.codingwithmitch.giffit.di.IO
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_SUCCESS
@@ -36,6 +38,7 @@ constructor(
     private val buildGif: BuildGif,
     private val resizeGif: ResizeGif,
     private val clearGifCache: ClearGifCache,
+    private val versionProvider: VersionProvider,
 ): ViewModel() {
 
     private val _state: MutableState<MainState> = mutableStateOf(Initial(Active()))
@@ -58,6 +61,11 @@ constructor(
         checkFilePermissions: () -> Boolean,
     ) {
         check(state.value is DisplayGif) { "saveGif: Invalid state: ${state.value}" }
+        // Ask permission if necessary
+        if (versionProvider.provideVersion() < Build.VERSION_CODES.Q  && !checkFilePermissions()) {
+            launchPermissionRequest()
+            return
+        }
         val uriToSave = (state.value as DisplayGif).let {
             it.resizedGifUri ?: it.gifUri
         } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
@@ -65,7 +73,6 @@ constructor(
             contentResolver = contentResolver,
             context = context,
             cachedUri = uriToSave,
-            launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).onEach { dataState ->
             when(dataState) {

@@ -51,7 +51,8 @@ class CaptureBitmapsTest {
             buildGif = mock(),
             resizeGif = mock(),
             clearGifCache= mock(),
-            captureBitmaps= captureBitmaps
+            captureBitmaps= captureBitmaps,
+            versionProvider = mock()
         )
     }
 
