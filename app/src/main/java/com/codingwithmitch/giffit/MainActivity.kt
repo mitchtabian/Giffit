@@ -1,5 +1,6 @@
 package com.codingwithmitch.giffit
 
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -13,6 +14,9 @@ import androidx.compose.material.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.lifecycleScope
+import coil.ImageLoader
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageView
@@ -21,6 +25,7 @@ import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
+import com.codingwithmitch.giffit.ui.compose.Gif
 import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
 import kotlinx.coroutines.flow.launchIn
@@ -29,6 +34,8 @@ import kotlinx.coroutines.flow.onEach
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+
+    private lateinit var imageLoader: ImageLoader
 
     private val cropAssetLauncher: ActivityResultLauncher<CropImageContractOptions> = this@MainActivity.registerForActivityResult(
         CropImageContract()
@@ -67,6 +74,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // TODO("Will remove this when we add Hilt for DI.")
+        imageLoader = ImageLoader.Builder(application)
+            .components {
+                if (Build.VERSION.SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
+            }
+            .build()
 
         // TODO("Will remove this when we add Hilt for DI.")
         viewModel.setCacheProvider(RealCacheProvider(application))
@@ -116,7 +134,12 @@ class MainActivity : ComponentActivity() {
                                 bitmapCaptureLoadingState = state.bitmapCaptureLoadingState,
                                 launchImagePicker = {
                                     backgroundAssetPickerLauncher.launch("image/*")
-                                }
+                                },
+                                loadingState = state.loadingState
+                            )
+                            is DisplayGif -> Gif(
+                                imageLoader = imageLoader,
+                                gifUri = state.gifUri,
                             )
                         }
                     }

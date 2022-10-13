@@ -28,6 +28,7 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.rememberAsyncImagePainter
 import com.codingwithmitch.giffit.R
 import com.codingwithmitch.giffit.domain.DataState
+import com.codingwithmitch.giffit.domain.DataState.Loading.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import java.lang.Math.*
 
@@ -37,8 +38,9 @@ fun BackgroundAsset(
     updateCapturingViewBounds: (Rect) -> Unit,
     startBitmapCaptureJob: () -> Unit,
     endBitmapCaptureJob: () -> Unit,
-    bitmapCaptureLoadingState: DataState.Loading.LoadingState,
+    bitmapCaptureLoadingState: LoadingState,
     launchImagePicker: () -> Unit,
+    loadingState: LoadingState,
 ) {
     ConstraintLayout(
         modifier = Modifier.fillMaxSize()
@@ -80,6 +82,7 @@ fun BackgroundAsset(
             backgroundAssetUri = backgroundAssetUri,
             assetContainerHeightDp = assetContainerHeight
         )
+        StandardLoadingUI(loadingState = loadingState)
 
         // Bottom container
         val bottomContainerHeight = remember { configuration.screenHeightDp - assetContainerHeight - topBarHeight }

@@ -1,8 +1,6 @@
 package com.codingwithmitch.giffit
 
-import android.app.Application
 import android.content.ContentResolver
-import android.util.Log
 import android.view.View
 import android.view.Window
 import androidx.compose.runtime.MutableState
@@ -52,7 +50,9 @@ class MainViewModel : ViewModel() {
         check(state.value is DisplayBackgroundAsset) { "buildGif: Invalid state: ${state.value}" }
         val capturedBitmaps = (state.value as DisplayBackgroundAsset).capturedBitmaps
         check(capturedBitmaps.isNotEmpty()) { "You have no bitmaps to build a gif from!" }
-        // TODO("Update state to show loading")
+        updateState(
+            (state.value as DisplayBackgroundAsset).copy(loadingState = Active())
+        )
         // TODO("This will be injected into the ViewModel later.")
         val buildGif: BuildGif = BuildGifInteractor(
             cacheProvider = cacheProvider!!, // !! for now to force it to work.
@@ -67,9 +67,12 @@ class MainViewModel : ViewModel() {
                     (state.value as DisplayBackgroundAsset).let {
                         val gifSize = dataState.data?.gifSize ?: 0
                         val gifUri = dataState.data?.uri
-                        // TODO("Update state to display the gif and the size of the gif.")
-                        System.out.println("GIF BUILDER: gif size ${gifSize}") // Confirming the gif builder worked
-                        System.out.println("GIF BUILDER: gif URI ${gifUri}") // Confirming the gif builder worked
+                        updateState(
+                            DisplayGif(
+                                gifUri = gifUri,
+                                originalGifSize = gifSize,
+                            )
+                        )
                     }
                 }
                 is DataState.Error -> {
@@ -79,13 +82,17 @@ class MainViewModel : ViewModel() {
                             message = dataState.message
                         )
                     )
-                    // TODO("Update Loading state to be Idle")
+                    updateState(
+                        (state.value as DisplayBackgroundAsset).copy(loadingState = Idle)
+                    )
                 }
                 is DataState.Loading -> {
                     // Need to check here since there is a state change to DisplayGif and loading
                     //  emissions can technically still come after the job is complete
                     if (state.value is DisplayBackgroundAsset) {
-                        // TODO("Update Loading state")
+                        updateState(
+                            (state.value as DisplayBackgroundAsset).copy(loadingState = dataState.loadingState)
+                        )
                     }
                 }
             }
