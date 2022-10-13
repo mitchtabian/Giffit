@@ -27,5 +27,8 @@ sealed class MainState {
     data class DisplayGif(
         val gifUri: Uri?,
         val originalGifSize: Int,
+
+        // Carry around the original background asset URI in-case user resets the gif.
+        val backgroundAssetUri: Uri
     ): MainState()
 }

@@ -140,6 +140,7 @@ class MainActivity : ComponentActivity() {
                             is DisplayGif -> Gif(
                                 imageLoader = imageLoader,
                                 gifUri = state.gifUri,
+                                discardGif = viewModel::deleteGif
                             )
                         }
                     }

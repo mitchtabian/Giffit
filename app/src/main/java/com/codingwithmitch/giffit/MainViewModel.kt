@@ -71,6 +71,7 @@ class MainViewModel : ViewModel() {
                             DisplayGif(
                                 gifUri = gifUri,
                                 originalGifSize = gifSize,
+                                backgroundAssetUri = it.backgroundAssetUri
                             )
                         )
                     }
@@ -175,6 +176,24 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    private fun clearCachedFiles() {
+        // TODO("We will be injecting this later when we add Hilt for DI.")
+        val clearGifCache: ClearGifCache = ClearGifCacheInteractor(
+            cacheProvider = cacheProvider!! // !! for now to force
+        )
+        clearGifCache.execute().onEach { _ ->
+            // Don't update UI here. Should just succeed or fail silently.
+        }.flowOn(dispatcher).launchIn(viewModelScope)
+    }
+
+    fun deleteGif() {
+        clearCachedFiles()
+        check(state.value is DisplayGif) { "deleteGif: Invalid state: ${state.value}" }
+        _state.value = DisplayBackgroundAsset(
+            backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
+        )
     }
 
     fun endBitmapCaptureJob() {
