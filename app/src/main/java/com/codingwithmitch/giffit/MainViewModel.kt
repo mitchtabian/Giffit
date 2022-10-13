@@ -44,6 +44,15 @@ class MainViewModel : ViewModel() {
         this.cacheProvider = cacheProvider
     }
 
+    fun saveGif(
+        launchPermissionRequest: () -> Unit,
+        checkFilePermissions: () -> Boolean,
+    ) {
+        if (!checkFilePermissions()) {
+            launchPermissionRequest()
+        }
+    }
+
     private fun buildGif(
         contentResolver: ContentResolver,
     ) {

@@ -23,6 +23,7 @@ fun Gif(
     imageLoader: ImageLoader,
     gifUri: Uri?,
     discardGif: () -> Unit,
+    onSavedGif: () -> Unit,
 ) {
     val configuration = LocalConfiguration.current
     Box(
@@ -54,9 +55,7 @@ fun Gif(
                     }
                     Spacer(Modifier.weight(1f))
                     Button(
-                        onClick = {
-                            // TODO("Save the gif")
-                        },
+                        onClick = onSavedGif,
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = Color.Green
                         ),
