@@ -2,6 +2,7 @@ package com.codingwithmitch.giffit
 
 import android.content.ContentResolver
 import android.content.Context
+import android.os.Build
 import android.view.View
 import android.view.Window
 import androidx.compose.runtime.MutableState
@@ -56,18 +57,20 @@ class MainViewModel : ViewModel() {
         checkFilePermissions: () -> Boolean,
     ) {
         check(state.value is DisplayGif) { "saveGif: Invalid state: ${state.value}" }
+        // Ask permission if necessary
+        if (versionProvider.provideVersion() < Build.VERSION_CODES.Q  && !checkFilePermissions()) {
+            launchPermissionRequest()
+            return
+        }
         val uriToSave = (state.value as DisplayGif).gifUri ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
         saveGifToExternalStorage.execute(
             contentResolver = contentResolver,
             context = context,
             cachedUri = uriToSave,
-            launchPermissionRequest = launchPermissionRequest,
             checkFilePermissions = checkFilePermissions
         ).onEach { dataState ->
             when(dataState) {
-                is DataState.Data -> {
-                    showToast(message = "Saved")
-                }
+                is DataState.Data -> showToast(message = "Saved")
                 is DataState.Loading -> {
                     updateState(
                         (state.value as DisplayGif).copy(loadingState = dataState.loadingState)

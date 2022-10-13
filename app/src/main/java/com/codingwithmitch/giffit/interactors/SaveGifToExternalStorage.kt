@@ -18,11 +18,11 @@ import java.io.File
 import java.io.FileOutputStream
 
 interface SaveGifToExternalStorage {
+
     fun execute(
         contentResolver: ContentResolver,
         context: Context,
         cachedUri: Uri,
-        launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
     ): Flow<DataState<Unit>>
 }
@@ -47,7 +47,6 @@ constructor(
         contentResolver: ContentResolver,
         context: Context,
         cachedUri: Uri,
-        launchPermissionRequest: () -> Unit,
         checkFilePermissions: () -> Boolean,
     ): Flow<DataState<Unit>> = flow {
         try {
@@ -67,7 +66,7 @@ constructor(
                     emit(Data(Unit))
                 }
                 // If we made it this far, read/write permission has not been accepted.
-                else -> launchPermissionRequest()
+                else -> emit(Error(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
             }
         } catch (e: Exception) {
             emit(Error(e.message ?: SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR))
