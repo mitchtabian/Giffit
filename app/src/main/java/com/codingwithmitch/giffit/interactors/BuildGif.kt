@@ -1,19 +1,28 @@
 package com.codingwithmitch.giffit.interactors
 
+import android.annotation.SuppressLint
+import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
+import androidx.core.net.toUri
+import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.util.AnimatedGIFWriter
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import com.codingwithmitch.giffit.domain.FileNameBuilder
+import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.BuildGif.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 interface BuildGif {
 
     fun execute(
+        contentResolver: ContentResolver,
         bitmaps: List<Bitmap>,
     ): Flow<DataState<BuildGifResult>>
 
@@ -28,14 +37,21 @@ interface BuildGif {
  * We do not need read/write permission because saving to the cache does not require it.
  */
 class BuildGifInteractor
-constructor(): BuildGif {
+constructor(
+    private val cacheProvider: CacheProvider,
+    private val versionProvider: VersionProvider
+): BuildGif {
 
     override fun execute(
+        contentResolver: ContentResolver,
         bitmaps: List<Bitmap>,
     ): Flow<DataState<BuildGifResult>> =  flow {
         emit(Loading(Active()))
         try {
             val result = buildGifAndSaveToInternalStorage(
+                contentResolver = contentResolver,
+                versionProvider = versionProvider,
+                cacheProvider = cacheProvider,
                 bitmaps = bitmaps
             )
             emit(Data(result))
@@ -55,7 +71,10 @@ constructor(): BuildGif {
          * Build a Gif from a list of [Bitmap]'s and save to internal storage in [CacheProvider.gifCache].
          * Return a [BuildGifResult] containing the [Uri] and the Size of the new [Bitmap].
          */
-        fun buildGifAndSaveToInternalStorage(
+        private fun buildGifAndSaveToInternalStorage(
+            contentResolver: ContentResolver,
+            versionProvider: VersionProvider,
+            cacheProvider: CacheProvider,
             bitmaps: List<Bitmap>
         ): BuildGifResult {
             check(bitmaps.isNotEmpty()) { NO_BITMAPS_ERROR }
@@ -67,12 +86,41 @@ constructor(): BuildGif {
             }
             writer.finishWrite(bos)
             val byteArray = bos.toByteArray()
-            val uri = saveGifToInternalStorage() // TODO
+            val uri = saveGifToInternalStorage(
+                contentResolver = contentResolver,
+                bytes = byteArray,
+                versionProvider = versionProvider,
+                cacheProvider = cacheProvider
+            )
             return BuildGifResult(uri, byteArray.size)
         }
 
-        fun saveGifToInternalStorage(): Uri {
-            TODO("Save gif to cache")
+        /**
+         * Save a [ByteArray] to internal storage.
+         * You do not need permissions to write/read to internal storage at any API level.
+         *
+         * Suppresses the version warning since we're using [VersionProvider].
+         */
+        @SuppressLint("NewApi")
+        private fun saveGifToInternalStorage(
+            contentResolver: ContentResolver,
+            bytes: ByteArray,
+            cacheProvider: CacheProvider,
+            versionProvider: VersionProvider,
+        ): Uri {
+            val fileName = if (versionProvider.provideVersion() >= Build.VERSION_CODES.O) {
+                "${FileNameBuilder.buildFileNameAPI26()}.gif"
+            } else {
+                "${FileNameBuilder.buildFileName()}.gif"
+            }
+            val file = File.createTempFile(fileName, null, cacheProvider.gifCache())
+            val uri = file.toUri()
+            return contentResolver.openOutputStream(uri)?.let { os ->
+                os.write(bytes)
+                os.flush()
+                os.close()
+                uri
+            } ?: throw Exception(SAVE_GIF_TO_INTERNAL_STORAGE_ERROR)
         }
     }
 }
