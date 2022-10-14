@@ -158,6 +158,7 @@ constructor(
             // Add content values so media is discoverable by android and added to common directories.
             val contentValues = ContentValues()
             contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/gif")
             val uri = contentResolver.insert(externalUri, contentValues) ?: throw Exception("Error inserting the uri into storage.")
             return contentResolver.openOutputStream(uri)?.let { os ->
                 os.write(bytes)
