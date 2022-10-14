@@ -38,13 +38,7 @@ fun Gif(
     loadingState: LoadingState,
 ) {
     StandardLoadingUI(loadingState = loadingState)
-    // TODO("Add Linear progress indicator for when resizing is taking place")
-    if (gifResizingLoadingState is LoadingState.Active) {
-        Text(
-            modifier = Modifier.fillMaxSize(),
-            text = "RESIZING GIF!!!..."
-        )
-    }
+    ResizingGifLoadingUI(gifResizingLoadingState = gifResizingLoadingState)
     val configuration = LocalConfiguration.current
     Box(
         modifier = Modifier
