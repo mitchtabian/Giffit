@@ -2,6 +2,7 @@ package com.codingwithmitch.giffit
 
 import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.view.View
 import android.view.Window
@@ -20,6 +21,7 @@ import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
+import java.io.File
 import java.util.UUID
 
 class MainViewModel : ViewModel() {
@@ -50,6 +52,56 @@ class MainViewModel : ViewModel() {
         this.cacheProvider = cacheProvider
     }
 
+    fun resizeGif(
+        contentResolver: ContentResolver,
+    ) {
+        check(state.value is DisplayGif) { "resizeGif: Invalid state: ${state.value}" }
+        (state.value as DisplayGif).let {
+            // Calculate the target size of the resulting gif.
+            val targetSize = it.originalGifSize * it.sizePercentage.toFloat() / 100
+
+            // TODO("This will be injected later when we add Hilt.")
+            val resizeGif: ResizeGif = ResizeGifInteractor(
+                versionProvider = versionProvider,
+                cacheProvider = cacheProvider!! // !! for now to force
+            )
+            resizeGif.execute(
+                contentResolver = contentResolver,
+                capturedBitmaps = it.capturedBitmaps,
+                originalGifSize = it.originalGifSize.toFloat(),
+                targetSize = targetSize,
+                discardCachedGif = {
+                    discardCachedGif(it)
+                },
+            ).onEach { dataState ->
+                when(dataState) {
+                    is DataState.Loading -> {
+                        updateState(
+                            (state.value as DisplayGif).copy(resizeGifLoadingState = dataState.loadingState)
+                        )
+                    }
+                    is DataState.Data -> {
+                        _state.value = (state.value as DisplayGif).copy(
+                            resizedGifUri = dataState.data
+                        )
+                    }
+                    is DataState.Error -> {
+                        publishErrorEvent(
+                            ErrorEvent(
+                                id = UUID.randomUUID().toString(),
+                                message = dataState.message
+                            )
+                        )
+                    }
+                }
+            }.onCompletion {
+                updateState(
+                    (state.value as DisplayGif).copy(loadingState = Idle)
+                )
+            }.flowOn(dispatcher).launchIn(viewModelScope)
+        }
+    }
+
     fun saveGif(
         contentResolver: ContentResolver,
         context: Context,
@@ -62,7 +114,9 @@ class MainViewModel : ViewModel() {
             launchPermissionRequest()
             return
         }
-        val uriToSave = (state.value as DisplayGif).gifUri ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
+        val uriToSave = (state.value as DisplayGif).let {
+            it.resizedGifUri ?: it.gifUri
+        } ?: throw Exception(SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR)
         saveGifToExternalStorage.execute(
             contentResolver = contentResolver,
             context = context,
@@ -281,5 +335,48 @@ class MainViewModel : ViewModel() {
 
     fun clearErrorEvents() {
         _errorRelay.value = setOf()
+    }
+
+    fun resetGifToOriginal() {
+        check(state.value is DisplayGif) { "resetGifToOriginal: Invalid state: ${state.value}" }
+        (state.value as DisplayGif).run {
+            resizedGifUri?.let {
+                discardCachedGif(it)
+            }
+            _state.value = this.copy(
+                resizedGifUri = null,
+                adjustedBytes = originalGifSize,
+                sizePercentage = 100
+            )
+        }
+    }
+
+    fun updateAdjustedBytes(adjustedBytes: Int) {
+        check(state.value is DisplayGif) { "updateAdjustedBytes: Invalid state: ${state.value}" }
+        _state.value = (state.value as DisplayGif).copy(
+            adjustedBytes = adjustedBytes
+        )
+    }
+
+    fun updateSizePercentage(sizePercentage: Int) {
+        check(state.value is DisplayGif) { "updateSizePercentage: Invalid state: ${state.value}" }
+        _state.value = (state.value as DisplayGif).copy(
+            sizePercentage = sizePercentage
+        )
+    }
+
+    companion object {
+        const val DISCARD_CACHED_GIF_ERROR = "Failed to delete cached gif at uri: "
+
+        /**
+         * Added to companion object so it's easily used in Unit tests.
+         */
+        private fun discardCachedGif(uri: Uri) {
+            val file = File(uri.path)
+            val success = file.delete()
+            if (!success) {
+                throw Exception("$DISCARD_CACHED_GIF_ERROR $uri.")
+            }
+        }
     }
 }
