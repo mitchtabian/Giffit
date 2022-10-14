@@ -119,22 +119,6 @@ constructor(
     /**
      * Capture a screenshot on API < [Build.VERSION_CODES.O].
      */
-//    private suspend fun captureBitmap(
-//        rect: Rect?,
-//        view: View,
-//    ) = withContext(Main) {
-//        check(rect != null) { "Invalid capture area." }
-//        val bitmap = Bitmap.createBitmap(
-//            rect.width.roundToInt(),
-//            rect.height.roundToInt(),
-//            Bitmap.Config.ARGB_8888
-//        ).applyCanvas {
-//            translate(-rect.left, -rect.top)
-//            view.draw(this)
-//        }
-//        return@withContext bitmap
-//    }
-
     private suspend fun captureBitmap(
         rect: Rect?,
         view: View,
