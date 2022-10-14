@@ -178,7 +178,24 @@ class MainActivity : ComponentActivity() {
                                         checkFilePermissions = ::checkFilePermissions,
                                     )
                                 },
-                                loadingState = state.loadingState
+                                currentGifSize = state.originalGifSize,
+                                adjustedBytes = state.adjustedBytes,
+                                isResizedGif = state.resizedGifUri != null,
+                                resetGifToOriginal = {
+                                    // TODO("delegate to viewmodel")
+                                },
+                                updateAdjustedBytes = {
+                                    // TODO("delegate to viewmodel")
+                                },
+                                sizePercentage = state.sizePercentage,
+                                updateSizePercentage = {
+                                    // TODO("delegate to viewmodel")
+                                },
+                                resizeGif = {
+                                    // TODO("delegate to viewmodel")
+                                },
+                                loadingState = state.loadingState,
+                                gifResizingLoadingState = state.resizeGifLoadingState
                             )
                         }
                     }

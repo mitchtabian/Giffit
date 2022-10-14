@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading.*
 
 @Composable
@@ -25,9 +26,19 @@ fun Gif(
     gifUri: Uri?,
     discardGif: () -> Unit,
     onSavedGif: () -> Unit,
+    resetGifToOriginal: () -> Unit,
+    isResizedGif: Boolean,
+    currentGifSize: Int,
+    adjustedBytes: Int,
+    updateAdjustedBytes: (Int) -> Unit,
+    sizePercentage: Int,
+    updateSizePercentage: (Int) -> Unit,
+    resizeGif: () -> Unit,
+    gifResizingLoadingState: LoadingState,
     loadingState: LoadingState,
 ) {
     StandardLoadingUI(loadingState = loadingState)
+    // TODO("Add Linear progress indicator for when resizing is taking place")
     val configuration = LocalConfiguration.current
     Box(
         modifier = Modifier
@@ -80,7 +91,81 @@ fun Gif(
                     painter = image,
                     contentDescription = ""
                 )
-                // TODO("Add footer for gif screen. This will be for resizing.")
+                GifFooter(
+                    adjustedBytes = adjustedBytes,
+                    updateAdjustedBytes = updateAdjustedBytes,
+                    sizePercentage = sizePercentage,
+                    updateSizePercentage = updateSizePercentage,
+                    gifSize = currentGifSize,
+                    isResizedGif = isResizedGif,
+                    resetResizing = resetGifToOriginal,
+                    resizeGif = resizeGif
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GifFooter(
+    adjustedBytes: Int,
+    updateAdjustedBytes: (Int) -> Unit,
+    sizePercentage: Int,
+    updateSizePercentage: (Int) -> Unit,
+    gifSize: Int,
+    isResizedGif: Boolean,
+    resizeGif: () -> Unit,
+    resetResizing: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+    ) {
+        Text(
+            modifier = Modifier.align(Alignment.End),
+            style = MaterialTheme.typography.h6,
+            text = "Approximate gif size"
+        )
+        Text(
+            modifier = Modifier.align(Alignment.End),
+            style = MaterialTheme.typography.body1,
+            text = "${adjustedBytes / 1024} KB" // convert to bytes -> KB
+        )
+        if (isResizedGif) {
+            Button(
+                modifier = Modifier.align(Alignment.End),
+                onClick = resetResizing
+            ) {
+                Text(
+                    text = "Reset resizing",
+                    style = MaterialTheme.typography.body1,
+                )
+            }
+        } else {
+            Text(
+                text = "$sizePercentage %",
+                style = MaterialTheme.typography.body1,
+            )
+            var sliderPosition by remember { mutableStateOf(100f) }
+            Slider(
+                value = sliderPosition,
+                valueRange = 5f..100f,
+                onValueChange = {
+                    sliderPosition = it
+                    val newSizePercentage = sliderPosition.toInt()
+                    updateSizePercentage(newSizePercentage)
+                    updateAdjustedBytes(gifSize * newSizePercentage / 100)
+                },
+            )
+            Button(
+                modifier = Modifier.align(Alignment.End),
+                onClick = resizeGif
+            ) {
+                Text(
+                    text = "Resize",
+                    style = MaterialTheme.typography.body1,
+                )
             }
         }
     }

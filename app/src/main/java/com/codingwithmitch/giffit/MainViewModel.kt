@@ -123,8 +123,12 @@ class MainViewModel : ViewModel() {
                         updateState(
                             DisplayGif(
                                 gifUri = gifUri,
+                                backgroundAssetUri = it.backgroundAssetUri,
+                                resizedGifUri = null,
                                 originalGifSize = gifSize,
-                                backgroundAssetUri = it.backgroundAssetUri
+                                adjustedBytes = gifSize,
+                                sizePercentage = 100,
+                                capturedBitmaps = it.capturedBitmaps
                             )
                         )
                     }

@@ -26,10 +26,15 @@ sealed class MainState {
 
     data class DisplayGif(
         val gifUri: Uri?,
+        val resizedGifUri: Uri?,
         val originalGifSize: Int,
-
-        // Carry around the original background asset URI in-case user resets the gif.
+        val adjustedBytes: Int,
+        val sizePercentage: Int,
         val backgroundAssetUri: Uri,
+        val capturedBitmaps: List<Bitmap> = listOf(),
+
+        // Displayed as a LinearProgressIndicator in the middle of the screen, occupying the entire view.
+        val resizeGifLoadingState: LoadingState = Idle,
 
         // Displayed as a CircularIndeterminateProgressBar overlayed in the center of the screen.
         val loadingState: LoadingState = Idle,
