@@ -29,7 +29,7 @@ sealed class MainState {
         val resizedGifUri: Uri?,
         val originalGifSize: Int,
         val adjustedBytes: Int,
-        val sizePercentage: Float,
+        val sizePercentage: Int,
         val backgroundAssetUri: Uri,
         val capturedBitmaps: List<Bitmap> = listOf(),
 
