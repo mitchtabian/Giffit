@@ -20,6 +20,7 @@ import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.*
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_ERROR
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_SUCCESS
+import com.codingwithmitch.giffit.interactors.ResizeGifInteractor.Companion.RESIZE_GIF_ERROR
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
@@ -128,9 +129,12 @@ constructor(
                         )
                     }
                     is DataState.Data -> {
-                        _state.value = (state.value as DisplayGif).copy(
-                            resizedGifUri = dataState.data
-                        )
+                        dataState.data?.let { data ->
+                            _state.value = (state.value as DisplayGif).copy(
+                                resizedGifUri = data.uri,
+                                adjustedBytes = data.gifSize
+                            )
+                        } ?: throw Exception(RESIZE_GIF_ERROR)
                     }
                     is DataState.Error -> {
                         publishErrorEvent(
@@ -247,7 +251,7 @@ constructor(
                                 resizedGifUri = null,
                                 originalGifSize = gifSize,
                                 adjustedBytes = gifSize,
-                                sizePercentage = 100,
+                                sizePercentage = 100f,
                                 backgroundAssetUri = it.backgroundAssetUri,
                                 capturedBitmaps = it.capturedBitmaps
                             )
@@ -287,7 +291,7 @@ constructor(
             _state.value = this.copy(
                 resizedGifUri = null,
                 adjustedBytes = originalGifSize,
-                sizePercentage = 100
+                sizePercentage = 100f
             )
         }
     }
@@ -304,14 +308,14 @@ constructor(
         )
     }
 
-    fun updateAdjustedBytes(adjustedBytes: Int) {
+    fun updateAdjustedBytes(adjustedBytes: Float) {
         check(state.value is DisplayGif) { "updateAdjustedBytes: Invalid state: ${state.value}" }
         _state.value = (state.value as DisplayGif).copy(
-            adjustedBytes = adjustedBytes
+            adjustedBytes = adjustedBytes.toInt()
         )
     }
 
-    fun updateSizePercentage(sizePercentage: Int) {
+    fun updateSizePercentage(sizePercentage: Float) {
         check(state.value is DisplayGif) { "updateSizePercentage: Invalid state: ${state.value}" }
        _state.value = (state.value as DisplayGif).copy(
             sizePercentage = sizePercentage

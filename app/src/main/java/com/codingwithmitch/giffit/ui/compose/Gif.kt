@@ -2,6 +2,7 @@ package com.codingwithmitch.giffit.ui.compose
 
 import android.net.Uri
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -29,9 +30,9 @@ fun Gif(
     onSavedGif: () -> Unit,
     currentGifSize: Int,
     adjustedBytes: Int,
-    updateAdjustedBytes: (Int) -> Unit,
-    sizePercentage: Int,
-    updateSizePercentage: (Int) -> Unit,
+    updateAdjustedBytes: (Float) -> Unit,
+    sizePercentage: Float,
+    updateSizePercentage: (Float) -> Unit,
     resizeGif: () -> Unit,
     loadingState: DataState.Loading.LoadingState,
     gifResizingLoadingState: DataState.Loading.LoadingState,
@@ -89,6 +90,7 @@ fun Gif(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height((configuration.screenHeightDp * 0.6).dp)
+                        .background(Color.Transparent)
                     ,
                     contentScale = ContentScale.Crop,
                     painter = image,
@@ -112,9 +114,9 @@ fun Gif(
 @Composable
 fun GifFooter(
     adjustedBytes: Int,
-    updateAdjustedBytes: (Int) -> Unit,
-    sizePercentage: Int,
-    updateSizePercentage: (Int) -> Unit,
+    updateAdjustedBytes: (Float) -> Unit,
+    sizePercentage: Float,
+    updateSizePercentage: (Float) -> Unit,
     gifSize: Int,
     isResizedGif: Boolean,
     resizeGif: () -> Unit,
@@ -150,13 +152,27 @@ fun GifFooter(
                 text = "$sizePercentage %",
                 style = MaterialTheme.typography.body1,
             )
-            var sliderPosition by remember { mutableStateOf(100f) }
+            var sliderPosition by remember { mutableStateOf(11.0f) }
             Slider(
                 value = sliderPosition,
-                valueRange = 5f..100f,
+                valueRange = 1f..11f,
+                steps = 9,
                 onValueChange = {
                     sliderPosition = it
-                    val newSizePercentage = sliderPosition.toInt()
+                    val newSizePercentage = when {
+                        it > 10 -> 100f
+                        it > 9 && it <= 10 -> 80f
+                        it > 8 && it <= 9 -> 60f
+                        it > 7 && it <= 8 -> 40f
+                        it > 6 && it <= 7 -> 20f
+                        it > 5 && it <= 6 -> 5f
+                        it > 4 && it <= 5 -> 4f
+                        it > 3 && it <= 4 -> 3f
+                        it > 2 && it <= 3 -> 2f
+                        it > 1 && it <= 2 -> 1f
+                        it > 0f && it  <= 1 -> 0.5f
+                        else -> throw Exception("Invalid step or something? ${it}")
+                    }
                     updateSizePercentage(newSizePercentage)
                     updateAdjustedBytes(gifSize * newSizePercentage / 100)
                 },

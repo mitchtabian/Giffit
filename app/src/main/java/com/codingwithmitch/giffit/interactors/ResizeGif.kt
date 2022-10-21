@@ -11,6 +11,7 @@ import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
+import com.codingwithmitch.giffit.interactors.ResizeGif.*
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,7 +27,17 @@ interface ResizeGif {
         targetSize: Float,
         bilinearFiltering: Boolean = true,
         discardCachedGif: (Uri) -> Unit,
-    ): Flow<DataState<Uri>>
+    ): Flow<DataState<ResizeGifResult>>
+
+    /**
+     * Result returned from [ResizeGif].
+     * @param uri: [Uri] of the gif saved to internal storage.
+     * @param gifSize: Size of the gif as it exists in internal storage.
+     */
+    data class ResizeGifResult(
+        val uri: Uri,
+        val gifSize: Int,
+    )
 }
 
 @Module
@@ -57,11 +68,11 @@ constructor(
         targetSize: Float,
         bilinearFiltering: Boolean,
         discardCachedGif: (Uri) -> Unit,
-    ): Flow<DataState<Uri>> = flow {
+    ): Flow<DataState<ResizeGifResult>> = flow {
         var previousUri: Uri? = null
         var progress: Float
         var percentageLoss = percentageLossIncrementSize
-        emit(Loading<Uri>(Active(percentageLoss)))
+        emit(Loading(Active(percentageLoss)))
         try {
             var resizing = true
             while (resizing) {
@@ -93,7 +104,7 @@ constructor(
                 val newSize = result.gifSize.toFloat()
                 val uri = result.uri
                 progress = (originalGifSize - newSize) / (originalGifSize - targetSize)
-                emit(Loading<Uri>(Active(progress)))
+                emit(Loading(Active(progress)))
 
                 // Continue to next iteration
                 if (newSize > targetSize) {
@@ -101,7 +112,7 @@ constructor(
                     percentageLoss += percentageLossIncrementSize
                 } else {
                     // Done resizing
-                    emit(Data(uri))
+                    emit(Data(ResizeGifResult(uri = uri, gifSize = newSize.toInt())))
                     resizing = false
                 }
             }
