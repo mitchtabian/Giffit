@@ -48,7 +48,7 @@ constructor(
                 cacheProvider = cacheProvider,
                 bitmaps = bitmaps
             )
-            emit(Data(BuildGifResult(uriSizePair.first, uriSizePair.second)))
+            emit(Data(BuildGifResult(uriSizePair.uri, uriSizePair.gifSize)))
         } catch (e: Exception) {
             emit(Error(e.message ?: BUILD_GIF_ERROR))
         }

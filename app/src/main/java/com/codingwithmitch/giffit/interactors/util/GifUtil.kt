@@ -11,6 +11,8 @@ import com.codingwithmitch.giffit.domain.FileNameBuilder
 import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.domain.util.AnimatedGIFWriter
 import com.codingwithmitch.giffit.interactors.BuildGifInteractor
+import com.codingwithmitch.giffit.interactors.ResizeGif
+import com.codingwithmitch.giffit.interactors.ResizeGif.*
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -25,7 +27,7 @@ object GifUtil {
         versionProvider: VersionProvider,
         cacheProvider: CacheProvider,
         bitmaps: List<Bitmap>
-    ): Pair<Uri, Int> {
+    ): ResizeGifResult {
         check(bitmaps.isNotEmpty()) { BuildGifInteractor.NO_BITMAPS_ERROR }
         val writer = AnimatedGIFWriter(true)
         val bos = ByteArrayOutputStream()
@@ -41,7 +43,7 @@ object GifUtil {
             versionProvider = versionProvider,
             cacheProvider = cacheProvider
         )
-        return Pair(uri, byteArray.size)
+        return ResizeGifResult(uri, byteArray.size)
     }
 
     /**
