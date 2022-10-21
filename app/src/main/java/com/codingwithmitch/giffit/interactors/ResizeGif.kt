@@ -85,8 +85,8 @@ constructor(
                     cacheProvider = cacheProvider,
                     bitmaps = resizedBitmaps,
                 )
-                val uri = result.first
-                val newSize = result.second.toFloat()
+                val uri = result.uri
+                val newSize = result.gifSize
                 progress = (originalGifSize - newSize) / (originalGifSize - targetSize)
                 emit(Loading(Active(progress)))
 
