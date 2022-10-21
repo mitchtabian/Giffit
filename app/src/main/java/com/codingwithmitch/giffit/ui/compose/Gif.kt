@@ -30,9 +30,9 @@ fun Gif(
     isResizedGif: Boolean,
     currentGifSize: Int,
     adjustedBytes: Int,
-    updateAdjustedBytes: (Float) -> Unit,
-    sizePercentage: Float,
-    updateSizePercentage: (Float) -> Unit,
+    updateAdjustedBytes: (Int) -> Unit,
+    sizePercentage: Int,
+    updateSizePercentage: (Int) -> Unit,
     resizeGif: () -> Unit,
     gifResizingLoadingState: LoadingState,
     loadingState: LoadingState,
@@ -109,9 +109,9 @@ fun Gif(
 @Composable
 fun GifFooter(
     adjustedBytes: Int,
-    updateAdjustedBytes: (Float) -> Unit,
-    sizePercentage: Float,
-    updateSizePercentage: (Float) -> Unit,
+    updateAdjustedBytes: (Int) -> Unit,
+    sizePercentage: Int,
+    updateSizePercentage: (Int) -> Unit,
     gifSize: Int,
     isResizedGif: Boolean,
     resizeGif: () -> Unit,
@@ -154,22 +154,8 @@ fun GifFooter(
                 steps = 9,
                 onValueChange = {
                     sliderPosition = it
-                    val newSizePercentage = when {
-                        it > 10 -> 100f
-                        it > 9 && it <= 10 -> 80f
-                        it > 8 && it <= 9 -> 60f
-                        it > 7 && it <= 8 -> 40f
-                        it > 6 && it <= 7 -> 20f
-                        it > 5 && it <= 6 -> 5f
-                        it > 4 && it <= 5 -> 4f
-                        it > 3 && it <= 4 -> 3f
-                        it > 2 && it <= 3 -> 2f
-                        it > 1 && it <= 2 -> 1f
-                        it > 0f && it  <= 1 -> 0.5f
-                        else -> throw Exception("Invalid step or something? ${it}")
-                    }
-                    updateSizePercentage(newSizePercentage)
-                    updateAdjustedBytes(gifSize * newSizePercentage / 100)
+                    updateSizePercentage(sliderPosition.toInt())
+                    updateAdjustedBytes(gifSize * sliderPosition.toInt() / 100)
                 },
             )
             Button(
