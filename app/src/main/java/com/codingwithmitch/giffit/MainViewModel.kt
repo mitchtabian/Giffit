@@ -127,7 +127,7 @@ class MainViewModel : ViewModel() {
                                 resizedGifUri = null,
                                 originalGifSize = gifSize,
                                 adjustedBytes = gifSize,
-                                sizePercentage = 100,
+                                sizePercentage = 100f,
                                 capturedBitmaps = it.capturedBitmaps
                             )
                         )
