@@ -147,10 +147,10 @@ fun GifFooter(
                 text = "$sizePercentage %",
                 style = MaterialTheme.typography.body1,
             )
-            var sliderPosition by remember { mutableStateOf(11f) }
+            var sliderPosition by remember { mutableStateOf(100f) }
             Slider(
                 value = sliderPosition,
-                valueRange = 1f..11f,
+                valueRange = 1f..100f,
                 steps = 9,
                 onValueChange = {
                     sliderPosition = it
