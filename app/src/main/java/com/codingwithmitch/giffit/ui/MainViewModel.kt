@@ -251,7 +251,7 @@ constructor(
                                 resizedGifUri = null,
                                 originalGifSize = gifSize,
                                 adjustedBytes = gifSize,
-                                sizePercentage = 100f,
+                                sizePercentage = 100,
                                 backgroundAssetUri = it.backgroundAssetUri,
                                 capturedBitmaps = it.capturedBitmaps
                             )
@@ -291,7 +291,7 @@ constructor(
             _state.value = this.copy(
                 resizedGifUri = null,
                 adjustedBytes = originalGifSize,
-                sizePercentage = 100f
+                sizePercentage = 100
             )
         }
     }
@@ -308,14 +308,14 @@ constructor(
         )
     }
 
-    fun updateAdjustedBytes(adjustedBytes: Float) {
+    fun updateAdjustedBytes(adjustedBytes: Int) {
         check(state.value is DisplayGif) { "updateAdjustedBytes: Invalid state: ${state.value}" }
         _state.value = (state.value as DisplayGif).copy(
-            adjustedBytes = adjustedBytes.toInt()
+            adjustedBytes = adjustedBytes
         )
     }
 
-    fun updateSizePercentage(sizePercentage: Float) {
+    fun updateSizePercentage(sizePercentage: Int) {
         check(state.value is DisplayGif) { "updateSizePercentage: Invalid state: ${state.value}" }
        _state.value = (state.value as DisplayGif).copy(
             sizePercentage = sizePercentage
