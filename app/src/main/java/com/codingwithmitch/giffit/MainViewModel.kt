@@ -19,12 +19,14 @@ import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion
 import com.codingwithmitch.giffit.interactors.CaptureBitmapsInteractor.Companion.CAPTURE_BITMAP_SUCCESS
 import com.codingwithmitch.giffit.interactors.ResizeGifInteractor.Companion.RESIZE_GIF_ERROR
 import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor.Companion.SAVE_GIF_TO_EXTERNAL_STORAGE_ERROR
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
 import java.io.File
 import java.util.UUID
 
+@HiltViewModel
 class MainViewModel : ViewModel() {
 
     private val dispatcher = IO

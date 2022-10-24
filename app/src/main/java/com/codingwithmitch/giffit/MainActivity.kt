@@ -30,9 +30,11 @@ import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.Gif
 import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
