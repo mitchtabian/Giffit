@@ -1,4 +1,4 @@
-package com.codingwithmitch
+package com.codingwithmitch.giffit
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
