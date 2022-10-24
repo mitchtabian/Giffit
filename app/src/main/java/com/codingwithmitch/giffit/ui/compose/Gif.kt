@@ -151,7 +151,6 @@ fun GifFooter(
             Slider(
                 value = sliderPosition,
                 valueRange = 1f..100f,
-                steps = 9,
                 onValueChange = {
                     sliderPosition = it
                     updateSizePercentage(sliderPosition.toInt())
