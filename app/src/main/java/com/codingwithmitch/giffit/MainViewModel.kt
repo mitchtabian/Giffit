@@ -25,9 +25,12 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
 import java.io.File
 import java.util.UUID
+import javax.inject.Inject
 
 @HiltViewModel
-class MainViewModel : ViewModel() {
+class MainViewModel
+@Inject
+constructor(): ViewModel() {
 
     private val dispatcher = IO
     private val pixelCopy: PixelCopyJob = PixelCopyJobInteractor()
