@@ -10,8 +10,13 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.BuildGif.*
 import com.codingwithmitch.giffit.interactors.util.GifUtil
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
 
 interface BuildGif {
 
@@ -26,11 +31,19 @@ interface BuildGif {
     )
 }
 
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class BuildGifModule {
+    @Binds
+    abstract fun provideBuildGif(buildGif: BuildGifInteractor): BuildGif
+}
+
 /**
  * Interactor for building a gif given a list of [Bitmap]'s. The resulting gif is saved it to internal storage.
  * We do not need read/write permission because saving to the cache does not require it.
  */
 class BuildGifInteractor
+@Inject
 constructor(
     private val cacheProvider: CacheProvider,
     private val versionProvider: VersionProvider

@@ -10,7 +10,12 @@ import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
 import com.codingwithmitch.giffit.interactors.ResizeGif.*
 import com.codingwithmitch.giffit.interactors.util.GifUtil.buildGifAndSaveToInternalStorage
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.*
+import javax.inject.Inject
 
 interface ResizeGif {
     fun execute(
@@ -33,6 +38,13 @@ interface ResizeGif {
     )
 }
 
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class ResizeGifModule {
+    @Binds
+    abstract fun provideResizeGif(resizeGif: ResizeGifInteractor): ResizeGif
+}
+
 /**
  * Interactor for resizing a gif.
  *
@@ -41,6 +53,7 @@ interface ResizeGif {
  * to do it accurately is to iteratively resize until you reach the target size.
  */
 class ResizeGifInteractor
+@Inject
 constructor(
     private val versionProvider: VersionProvider,
     private val cacheProvider: CacheProvider,

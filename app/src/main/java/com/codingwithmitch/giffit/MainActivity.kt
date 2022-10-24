@@ -33,13 +33,15 @@ import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
-    private lateinit var imageLoader: ImageLoader
+    @Inject
+    lateinit var imageLoader: ImageLoader
 
     fun checkFilePermissions(): Boolean  {
         val writePermission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -104,20 +106,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // TODO("Will remove this when we add Hilt for DI.")
-        imageLoader = ImageLoader.Builder(application)
-            .components {
-                if (Build.VERSION.SDK_INT >= 28) {
-                    add(ImageDecoderDecoder.Factory())
-                } else {
-                    add(GifDecoder.Factory())
-                }
-            }
-            .build()
-
-        // TODO("Will remove this when we add Hilt for DI.")
-        viewModel.setCacheProvider(RealCacheProvider(application))
-
         viewModel.toastEventRelay.onEach { toastEvent ->
             if (toastEvent != null) {
                 Toast.makeText(this@MainActivity, toastEvent.message, Toast.LENGTH_LONG).show()
@@ -135,7 +123,6 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.fillMaxSize()) {
                         when(state) {
                             Initial -> {
-                                // TODO("Show loading UI")
                                 viewModel.updateState(
                                     DisplaySelectBackgroundAsset
                                 )

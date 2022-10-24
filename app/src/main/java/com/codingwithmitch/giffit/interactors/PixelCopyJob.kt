@@ -11,7 +11,12 @@ import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Rect
 import com.codingwithmitch.giffit.interactors.PixelCopyJob.*
 import com.codingwithmitch.giffit.interactors.PixelCopyJob.PixelCopyJobState.*
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.suspendCancellableCoroutine
+import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
@@ -40,7 +45,18 @@ interface PixelCopyJob {
     }
 }
 
-class PixelCopyJobInteractor: PixelCopyJob {
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class PixelCopyJobModule {
+    @Binds
+    abstract fun providePixelCopyJob(
+        pixelCopyJob: PixelCopyJobInteractor
+    ): PixelCopyJob
+}
+
+class PixelCopyJobInteractor
+@Inject
+constructor(): PixelCopyJob {
 
     @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun execute(

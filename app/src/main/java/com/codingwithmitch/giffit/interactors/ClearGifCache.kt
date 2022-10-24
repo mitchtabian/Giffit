@@ -4,17 +4,30 @@ import com.codingwithmitch.giffit.domain.CacheProvider
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
 
 interface ClearGifCache {
     fun execute(): Flow<DataState<Unit>>
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class ClearGifCacheModule {
+    @Binds
+    abstract fun provideClearGifCache(clearGifCache: ClearGifCacheInteractor): ClearGifCache
 }
 
 /**
  * Interactor for clearing all the cached files from the path provided via [CacheProvider].
  */
 class ClearGifCacheInteractor
+@Inject
 constructor(
     private val cacheProvider: CacheProvider
 ): ClearGifCache {

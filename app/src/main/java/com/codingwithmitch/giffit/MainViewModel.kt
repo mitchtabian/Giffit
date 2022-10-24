@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.codingwithmitch.giffit.MainState.*
+import com.codingwithmitch.giffit.di.IO
 import com.codingwithmitch.giffit.domain.*
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.interactors.*
@@ -25,22 +26,20 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.*
 import java.io.File
 import java.util.UUID
+import javax.inject.Inject
 
 @HiltViewModel
-class MainViewModel : ViewModel() {
-
-    private val dispatcher = IO
-    private val pixelCopy: PixelCopyJob = PixelCopyJobInteractor()
-    private val versionProvider: VersionProvider = RealVersionProvider()
-    private val captureBitmaps: CaptureBitmaps = CaptureBitmapsInteractor(
-        pixelCopyJob = pixelCopy,
-        mainDispatcher = Dispatchers.Main,
-        versionProvider = versionProvider
-    )
-    private val saveGifToExternalStorage: SaveGifToExternalStorage = SaveGifToExternalStorageInteractor(
-        versionProvider = versionProvider
-    )
-    private var cacheProvider: CacheProvider? = null
+class MainViewModel
+@Inject
+constructor(
+    @IO private val ioDispatcher: CoroutineDispatcher,
+    private val captureBitmaps: CaptureBitmaps,
+    private val saveGifToExternalStorage: SaveGifToExternalStorage,
+    private val buildGif: BuildGif,
+    private val resizeGif: ResizeGif,
+    private val clearGifCache: ClearGifCache,
+    private val versionProvider: VersionProvider,
+): ViewModel() {
 
     private val _state: MutableState<MainState> = mutableStateOf(Initial)
     val state: State<MainState> get() = _state
@@ -48,12 +47,6 @@ class MainViewModel : ViewModel() {
     val toastEventRelay: StateFlow<ToastEvent?> get() = _toastEventRelay
     private val _errorRelay: MutableStateFlow<Set<ErrorEvent>> = MutableStateFlow(setOf())
     val errorRelay: StateFlow<Set<ErrorEvent>> get() = _errorRelay
-
-    fun setCacheProvider(
-        cacheProvider: CacheProvider
-    ) {
-        this.cacheProvider = cacheProvider
-    }
 
     fun resizeGif(
         contentResolver: ContentResolver,
@@ -63,11 +56,6 @@ class MainViewModel : ViewModel() {
             // Calculate the target size of the resulting gif.
             val targetSize = it.originalGifSize * it.sizePercentage.toFloat() / 100
 
-            // TODO("This will be injected later when we add Hilt.")
-            val resizeGif: ResizeGif = ResizeGifInteractor(
-                versionProvider = versionProvider,
-                cacheProvider = cacheProvider!! // !! for now to force
-            )
             resizeGif.execute(
                 contentResolver = contentResolver,
                 capturedBitmaps = it.capturedBitmaps,
@@ -104,7 +92,7 @@ class MainViewModel : ViewModel() {
                 updateState(
                     (state.value as DisplayGif).copy(loadingState = Idle)
                 )
-            }.flowOn(dispatcher).launchIn(viewModelScope)
+            }.flowOn(ioDispatcher).launchIn(viewModelScope)
         }
     }
 
@@ -154,7 +142,7 @@ class MainViewModel : ViewModel() {
             _state.value = DisplayBackgroundAsset(
                 backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
             )
-        }.flowOn(dispatcher).launchIn(viewModelScope)
+        }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
 
     private fun buildGif(
@@ -165,11 +153,6 @@ class MainViewModel : ViewModel() {
         check(capturedBitmaps.isNotEmpty()) { "You have no bitmaps to build a gif from!" }
         updateState(
             (state.value as DisplayBackgroundAsset).copy(loadingState = Active())
-        )
-        // TODO("This will be injected into the ViewModel later.")
-        val buildGif: BuildGif = BuildGifInteractor(
-            cacheProvider = cacheProvider!!, // !! for now to force it to work.
-            versionProvider = versionProvider
         )
         buildGif.execute(
             contentResolver = contentResolver,
@@ -214,7 +197,7 @@ class MainViewModel : ViewModel() {
                     }
                 }
             }
-        }.flowOn(dispatcher).launchIn(viewModelScope)
+        }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
 
     fun runBitmapCaptureJob(
@@ -271,7 +254,7 @@ class MainViewModel : ViewModel() {
                     updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = dataState.loadingState))
                 }
             }
-        }.flowOn(dispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
+        }.flowOn(ioDispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
             updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
             val onSuccess: () -> Unit = {
                 buildGif(contentResolver = contentResolver)
@@ -296,13 +279,9 @@ class MainViewModel : ViewModel() {
     }
 
     private fun clearCachedFiles() {
-        // TODO("We will be injecting this later when we add Hilt for DI.")
-        val clearGifCache: ClearGifCache = ClearGifCacheInteractor(
-            cacheProvider = cacheProvider!! // !! for now to force
-        )
         clearGifCache.execute().onEach { _ ->
             // Don't update UI here. Should just succeed or fail silently.
-        }.flowOn(dispatcher).launchIn(viewModelScope)
+        }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
 
     fun deleteGif() {

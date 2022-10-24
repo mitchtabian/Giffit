@@ -8,15 +8,21 @@ import android.view.View
 import android.view.Window
 import androidx.compose.ui.geometry.Rect
 import androidx.core.graphics.applyCanvas
+import com.codingwithmitch.giffit.di.Main
 import com.codingwithmitch.giffit.domain.DataState
 import com.codingwithmitch.giffit.domain.DataState.Loading
 import com.codingwithmitch.giffit.domain.DataState.Loading.LoadingState.*
 import com.codingwithmitch.giffit.domain.VersionProvider
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 import kotlin.math.roundToInt
 
 interface CaptureBitmaps {
@@ -32,6 +38,15 @@ interface CaptureBitmaps {
     ): Flow<DataState<List<Bitmap>>>
 }
 
+@Module
+@InstallIn(ViewModelComponent::class)
+abstract class CaptureBitmapsModule {
+    @Binds
+    abstract fun provideCaptureBitmaps(
+        captureBitmaps: CaptureBitmapsInteractor
+    ): CaptureBitmaps
+}
+
 /**
  * Interactor for capturing a list of bitmaps by screenshotting the device every [CAPTURE_INTERVAL_MS].
  *
@@ -40,10 +55,11 @@ interface CaptureBitmaps {
  * This makes things a little annoying because [PixelCopy.request] has a callback we need to use.
  */
 class CaptureBitmapsInteractor
+@Inject
 constructor(
     private val pixelCopyJob: PixelCopyJob,
     private val versionProvider: VersionProvider,
-    private val mainDispatcher: CoroutineDispatcher,
+    @Main private val mainDispatcher: CoroutineDispatcher,
 ): CaptureBitmaps {
 
     /**
