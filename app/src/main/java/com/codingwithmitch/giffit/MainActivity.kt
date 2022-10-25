@@ -13,6 +13,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
@@ -27,6 +29,7 @@ import com.canhub.cropper.options
 import com.codingwithmitch.giffit.MainState.*
 import com.codingwithmitch.giffit.domain.RealCacheProvider
 import com.codingwithmitch.giffit.ui.compose.BackgroundAsset
+import com.codingwithmitch.giffit.ui.compose.ErrorEventHandler
 import com.codingwithmitch.giffit.ui.compose.Gif
 import com.codingwithmitch.giffit.ui.compose.SelectBackgroundAsset
 import com.codingwithmitch.giffit.ui.compose.theme.GiffitTheme
@@ -184,6 +187,11 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    val errorEvents by viewModel.errorRelay.collectAsState()
+                    ErrorEventHandler(
+                        errorEvents = errorEvents,
+                        onClearErrorEvents = viewModel::clearErrorEvents
+                    )
                 }
             }
         }

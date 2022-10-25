@@ -86,6 +86,12 @@ constructor(
                                 message = dataState.message
                             )
                         )
+                        updateState(
+                            (state.value as DisplayGif).copy(
+                                loadingState = Idle,
+                                resizeGifLoadingState = Idle
+                            )
+                        )
                     }
                 }
             }.onCompletion {
@@ -130,6 +136,9 @@ constructor(
                             id = UUID.randomUUID().toString(),
                             message = dataState.message
                         )
+                    )
+                    updateState(
+                        (state.value as DisplayGif).copy(loadingState = Idle)
                     )
                 }
             }
@@ -184,7 +193,10 @@ constructor(
                         )
                     )
                     updateState(
-                        (state.value as DisplayBackgroundAsset).copy(loadingState = Idle)
+                        (state.value as DisplayBackgroundAsset).copy(
+                            loadingState = Idle,
+                            bitmapCaptureLoadingState = Idle
+                        )
                     )
                 }
                 is DataState.Loading -> {
@@ -192,10 +204,21 @@ constructor(
                     //  emissions can technically still come after the job is complete
                     if (state.value is DisplayBackgroundAsset) {
                         updateState(
-                            (state.value as DisplayBackgroundAsset).copy(loadingState = dataState.loadingState)
+                            (state.value as DisplayBackgroundAsset).copy(
+                                loadingState = dataState.loadingState
+                            )
                         )
                     }
                 }
+            }
+        }.onCompletion {
+            if (state.value is DisplayBackgroundAsset) {
+                updateState(
+                    (state.value as DisplayBackgroundAsset).copy(
+                        loadingState = Idle,
+                        bitmapCaptureLoadingState = Idle
+                    )
+                )
             }
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
@@ -242,7 +265,12 @@ constructor(
                     // Otherwise it will keep trying to capture bitmaps and failing over and over.
                     bitmapCaptureJob.cancel(CAPTURE_BITMAP_ERROR)
 
-                    updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
+                    updateState(
+                        (state.value as DisplayBackgroundAsset).copy(
+                            bitmapCaptureLoadingState = Idle,
+                            loadingState = Idle
+                        )
+                    )
                     publishErrorEvent(
                         ErrorEvent(
                             id = UUID.randomUUID().toString(),
@@ -255,7 +283,12 @@ constructor(
                 }
             }
         }.flowOn(ioDispatcher).launchIn(viewModelScope + bitmapCaptureJob).invokeOnCompletion { throwable ->
-            updateState((state.value as DisplayBackgroundAsset).copy(bitmapCaptureLoadingState = Idle))
+            updateState(
+                (state.value as DisplayBackgroundAsset).copy(
+                    bitmapCaptureLoadingState = Idle,
+                    loadingState = Idle
+                )
+            )
             val onSuccess: () -> Unit = {
                 buildGif(contentResolver = contentResolver)
             }
