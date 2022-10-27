@@ -23,6 +23,7 @@ import com.codingwithmitch.giffit.interactors.SaveGifToExternalStorageInteractor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.flow.*
 import java.io.File
 import java.util.UUID
@@ -95,9 +96,11 @@ constructor(
                     }
                 }
             }.onCompletion {
-                updateState(
-                    (state.value as DisplayGif).copy(loadingState = Idle)
-                )
+                withContext(Main) {
+                    updateState(
+                        (state.value as DisplayGif).copy(loadingState = Idle)
+                    )
+                }
             }.flowOn(ioDispatcher).launchIn(viewModelScope)
         }
     }
@@ -147,10 +150,14 @@ constructor(
             // Because if something goes wrong we want to reset anyway.
             clearCachedFiles()
 
-            // reset state to displaying the selected background asset.
-            _state.value = DisplayBackgroundAsset(
-                backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
-            )
+            withContext(Main) {
+                // reset state to displaying the selected background asset.
+                updateState(
+                    DisplayBackgroundAsset(
+                        backgroundAssetUri = (state.value as DisplayGif).backgroundAssetUri,
+                    )
+                )
+            }
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
 
@@ -212,13 +219,15 @@ constructor(
                 }
             }
         }.onCompletion {
-            if (state.value is DisplayBackgroundAsset) {
-                updateState(
-                    (state.value as DisplayBackgroundAsset).copy(
-                        loadingState = Idle,
-                        bitmapCaptureLoadingState = Idle
+            withContext(Main) {
+                if (state.value is DisplayBackgroundAsset) {
+                    updateState(
+                        (state.value as DisplayBackgroundAsset).copy(
+                            loadingState = Idle,
+                            bitmapCaptureLoadingState = Idle
+                        )
                     )
-                )
+                }
             }
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
