@@ -287,13 +287,15 @@ constructor(
                 }
             }
         }.onCompletion {
-            withContext(Main) {
-                updateState(
-                    (state.value as DisplayBackgroundAsset).copy(
-                        loadingState = Idle,
-                        bitmapCaptureLoadingState = Idle
+            if (state.value is DisplayBackgroundAsset) {
+                withContext(Main) {
+                    updateState(
+                        (state.value as DisplayBackgroundAsset).copy(
+                            loadingState = Idle,
+                            bitmapCaptureLoadingState = Idle
+                        )
                     )
-                )
+                }
             }
         }.flowOn(ioDispatcher).launchIn(viewModelScope)
     }
